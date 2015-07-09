@@ -26,6 +26,7 @@ import hudson.slaves.OfflineCause;
 
 public class AzureComputer extends AbstractCloudComputer<AzureSlave>  {
 	private static final Logger LOGGER = Logger.getLogger(AzureComputer.class.getName());
+	private boolean provisioned = false;
 
 	public AzureComputer(AzureSlave slave) {
 		super(slave);
@@ -33,6 +34,20 @@ public class AzureComputer extends AbstractCloudComputer<AzureSlave>  {
 	
 	public AzureSlave getNode() {
         return (AzureSlave)super.getNode();
+    }
+
+    public void setProvisioned(boolean provisioned) {
+        this.provisioned = provisioned;
+    }
+
+    public boolean isProvisioned() {
+        return this.provisioned;
+    }
+
+    @Override
+    public void waitUntilOnline() throws InterruptedException {
+        super.waitUntilOnline();
+        setProvisioned(true);
     }
 	
 	public HttpResponse doDoDelete() throws IOException {
