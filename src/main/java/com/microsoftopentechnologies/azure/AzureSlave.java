@@ -37,6 +37,7 @@ import hudson.slaves.AbstractCloudSlave;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.ComputerLauncher;
+import hudson.slaves.OfflineCause;
 import hudson.slaves.RetentionStrategy;
 
 public class AzureSlave extends AbstractCloudSlave  {
@@ -247,6 +248,7 @@ public class AzureSlave extends AbstractCloudSlave  {
 			// Call shutdown only if the slave is online
 			if (this.getComputer().isOnline()) {
 				LOGGER.info("AzureSlave: idleTimeout: shutdownOnIdle is true, shutting down slave "+this.getDisplayName());
+				this.getComputer().disconnect(OfflineCause.create(Messages._IDLE_TIMEOUT_SHUTDOWN()));
 				AzureManagementServiceDelegate.shutdownVirtualMachine(this);
 				setDeleteSlave(false);
 			}
