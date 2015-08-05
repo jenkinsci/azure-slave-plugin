@@ -67,7 +67,7 @@ public final class AzureTemplateMonitorTask extends AsyncPeriodicWork {
 	public synchronized static void registerTemplate(AzureSlaveTemplate template) {
 		if (templates == null) 
 			templates = new HashMap<String, String>();
-		templates.put(template.getTemplateName(), Constants.AZURE_CLOUD_PREFIX+template.getAzureCloud().getSubscriptionId());
+		templates.put(template.getTemplateName(), Constants.AZURE_CLOUD_PREFIX+template.getAzureCloud().getCredentials().getSubscriptionId());
 	}
 
 	public long getRecurrencePeriod() {

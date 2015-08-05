@@ -98,7 +98,7 @@
 				</div>
 			</f:entry>
 			<f:validateButton title="${%Verify_Template}" progress="${%Verifying_Template_MSG}" method="verifyConfiguration" 
-			with="subscriptionId,serviceManagementCert,passPhrase,serviceManagementURL,maxVirtualMachinesLimit,templateName,labels,location,virtualMachineSize,storageAccountName,
+			with="credentialsId,passPhrase,maxVirtualMachinesLimit,templateName,labels,location,virtualMachineSize,storageAccountName,
 			noOfParallelJobs,imageIdOrFamily,slaveLaunchMethod,initScript,adminUserName,adminPassword,virtualNetworkName,subnetName,retentionTimeInMin,cloudServiceName,templateStatus,jvmOptions" />
 			
 		</table>

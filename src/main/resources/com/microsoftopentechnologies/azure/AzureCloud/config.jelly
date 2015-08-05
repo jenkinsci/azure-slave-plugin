@@ -1,26 +1,17 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
 
 	<f:section title="${%Azure_Profile_Configuration}">
-		<f:entry title="${%Subscription_ID}" field="subscriptionId" help="/plugin/azure-slave-plugin/help-subscriptionId.html">
-			<f:textbox />
+		<f:entry title="${%Subscription Credential}" field="credentialsId">
+			<c:select />
 		 </f:entry>
 		 
-		<f:entry title="${%Service_Management_Certificate}" field="serviceManagementCert" help="/plugin/azure-slave-plugin/help-serviceManagementCert.html">
-			<f:password />
-		</f:entry>
-		
 		<f:entry title="${%Max_Virtual_Machines_Limit}" field="maxVirtualMachinesLimit" help="/plugin/azure-slave-plugin/help-maxVirtualMachinesLimit.html">
 				<f:textbox default="${descriptor.getDefaultMaxVMLimit()}" />
 		</f:entry>
 		
-		<f:advanced>
-			<f:entry title="${%Service_Management_URL}" field="serviceManagementURL" help="/plugin/azure-slave-plugin/help-serviceManagementURL.html">
-		    	<f:textbox default="${descriptor.getDefaultserviceManagementURL()}" />
-		  	</f:entry>
-		</f:advanced>
-		 		 
-		<f:validateButton title="${%Verify_Configuration}" progress="${%Verifying}" method="verifyConfiguration" with="subscriptionId,serviceManagementCert,passPhrase,serviceManagementURL" />
+
+		<f:validateButton title="${%Verify_Configuration}" progress="${%Verifying}" method="verifyConfiguration" with="credentialsId, passPhrase" />
 	</f:section>
 	
 	<f:entry title="${%Azure_Virtual_Machine_Template}" description="${%Azure_Virtual_Machine_Template_desc}">

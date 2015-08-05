@@ -28,6 +28,7 @@ import javax.servlet.ServletException;
 
 import jenkins.model.Jenkins;
 
+import org.jenkinsci.plugins.azure.AzurePublisherSettings;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -265,8 +266,12 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 	}
 	
 	public void waitForReadyRole(final AzureSlave slave) throws Exception {
-		final Configuration config = ServiceDelegateHelper.loadConfiguration(azureCloud.getSubscriptionId(), 
-				azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL());
+
+		final AzurePublisherSettings credentials = azureCloud.getCredentials();
+		if (credentials == null) throw new AzureCloudException("No credentials set");
+
+		final Configuration config = ServiceDelegateHelper.loadConfiguration(credentials.getSubscriptionId(),
+				credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl());
 		
 		Callable<Void> task = new Callable<Void>() {
 			public Void call() throws Exception {
@@ -335,15 +340,20 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 	}
 	
 	public int getVirtualMachineCount() throws Exception {
-		Configuration config = ServiceDelegateHelper.loadConfiguration(azureCloud.getSubscriptionId(), 
-				azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL());
+		final AzurePublisherSettings credentials = azureCloud.getCredentials();
+
+		Configuration config = ServiceDelegateHelper.loadConfiguration(credentials.getSubscriptionId(),
+				credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl());
 		ComputeManagementClient client = ServiceDelegateHelper.getComputeManagementClient(config);
 		return AzureManagementServiceDelegate.getVirtualMachineCount(client);
 	}
 	
 	public List<String> verifyTemplate() throws Exception {
+		final AzurePublisherSettings credentials = azureCloud.getCredentials();
+		if (credentials == null) throw new AzureCloudException("No credentials set");
+
 		return AzureManagementServiceDelegate.verifyTemplate
-				(azureCloud.getSubscriptionId(), azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(),
+				(credentials.getSubscriptionId(), credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl(),
 				 azureCloud.getMaxVirtualMachinesLimit()+"", templateName, labels, location, virtualMachineSize, storageAccountName, noOfParallelJobs+"", 
 				 imageIdOrFamily,slaveLaunchMethod, initScript, adminUserName, adminPassword, virtualNetworkName, subnetName,
 				 retentionTimeInMin+"", cloudServiceName, templateStatus, jvmOptions, true);
@@ -479,22 +489,22 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 		}
 
 		public ListBoxModel doFillVirtualMachineSizeItems(
-				@RelativePath("..") @QueryParameter String subscriptionId,
-				@RelativePath("..") @QueryParameter String serviceManagementCert,
-				@RelativePath("..") @QueryParameter String passPhrase,
-				@RelativePath("..") @QueryParameter String serviceManagementURL)
+				@RelativePath("..") @QueryParameter String credentialsId,
+				@RelativePath("..") @QueryParameter String passPhrase)
 				throws IOException, ServletException {
 			
 			ListBoxModel model = new ListBoxModel();
 			// Validate data
-			if (AzureUtil.isNull(subscriptionId) || AzureUtil.isNull(serviceManagementCert)) {
+			if (AzureUtil.isNull(credentialsId)) {
 				return model;
 			}
+
+			final AzurePublisherSettings credentials = AzureCloud.resolveCredentials(credentialsId);
 			
-			List<String> vmSizes = vmSizesMap.get(subscriptionId+serviceManagementCert);
+			List<String> vmSizes = vmSizesMap.get(credentials.getId());
 			
 			if (vmSizes == null) {
-				vmSizes = getVMSizes(subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL);
+				vmSizes = getVMSizes(credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl());
 			}
 			
 			for (String vmSize : vmSizes) {
@@ -505,21 +515,21 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 		}
 
 		public ListBoxModel doFillLocationItems(
-				@RelativePath("..") @QueryParameter String subscriptionId,
-				@RelativePath("..") @QueryParameter String serviceManagementCert,
-				@RelativePath("..") @QueryParameter String passPhrase,
-				@RelativePath("..") @QueryParameter String serviceManagementURL)
+				@RelativePath("..") @QueryParameter String credentialsId,
+				@RelativePath("..") @QueryParameter String passPhrase)
 				throws IOException, ServletException {
 			ListBoxModel model = new ListBoxModel();
 			// validate
-			if (AzureUtil.isNull(subscriptionId) || AzureUtil.isNull(serviceManagementCert)) {
+			if (AzureUtil.isNull(credentialsId) ) {
 				return model;
 			}
 
-			List<String> locations = locationsMap.get(subscriptionId+serviceManagementCert);
+			final AzurePublisherSettings credentials = AzureCloud.resolveCredentials(credentialsId);
+
+			List<String> locations = locationsMap.get(credentials.getId());
 			
 			if (locations == null ){
-				locations = getVMLocations(subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL);
+				locations = getVMLocations(credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl());
 			}
 			
 			for (String location : locations) {
@@ -546,20 +556,20 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 		}
 		
 		public ComboBoxModel doFillImageIdOrFamilyItems(
-				@RelativePath("..") @QueryParameter String subscriptionId,
-				@RelativePath("..") @QueryParameter String serviceManagementCert,
-				@RelativePath("..") @QueryParameter String passPhrase,
-				@RelativePath("..") @QueryParameter String serviceManagementURL) {
+				@RelativePath("..") @QueryParameter String credentialsId,
+				@RelativePath("..") @QueryParameter String passPhrase) {
 			ComboBoxModel model = new ComboBoxModel();
-			
-			if (AzureUtil.isNull(subscriptionId) || AzureUtil.isNull(serviceManagementCert)) {
+
+			if (AzureUtil.isNull(credentialsId)) {
 				return model;
 			}
+
+			final AzurePublisherSettings credentials = AzureCloud.resolveCredentials(credentialsId);
 			
-			Set<String> imageFamilyList = imageFamilyListMap.get(subscriptionId+serviceManagementCert);
+				Set<String> imageFamilyList = imageFamilyListMap.get(credentials.getId());
 			
 			if (imageFamilyList == null) {
-				imageFamilyList = getImageFamilyList(subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL);
+				imageFamilyList = getImageFamilyList(credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl());
 			}
 			
 			if (imageFamilyList != null) {
@@ -666,10 +676,8 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 		}
 		
 		public FormValidation doVerifyConfiguration(
-				@RelativePath("..") @QueryParameter String subscriptionId,
-				@RelativePath("..") @QueryParameter String serviceManagementCert,
+				@RelativePath("..") @QueryParameter String credentialsId,
 				@RelativePath("..") @QueryParameter String passPhrase,
-				@RelativePath("..") @QueryParameter String serviceManagementURL,
 				@RelativePath("..") @QueryParameter String maxVirtualMachinesLimit,
 				@QueryParameter String templateName, @QueryParameter String labels, @QueryParameter String location,
 				@QueryParameter String virtualMachineSize, @QueryParameter String storageAccountName,
@@ -678,9 +686,11 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 				@QueryParameter String adminPassword, @QueryParameter String virtualNetworkName, @QueryParameter String subnetName,
 				@QueryParameter String retentionTimeInMin, @QueryParameter String cloudServiceName,
 				@QueryParameter String templateStatus, @QueryParameter String jvmOptions) {
-			
+
+			final AzurePublisherSettings credentials = AzureCloud.resolveCredentials(credentialsId);
+
 			List<String> errors = AzureManagementServiceDelegate.verifyTemplate(
-					subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL, maxVirtualMachinesLimit,
+					credentials, passPhrase, maxVirtualMachinesLimit,
 					templateName, labels, location, virtualMachineSize, storageAccountName, noOfParallelJobs, imageIdOrFamily,
 					slaveLaunchMethod, initScript, adminUserName, adminPassword, virtualNetworkName, subnetName,
 					retentionTimeInMin, cloudServiceName,templateStatus,jvmOptions, false);

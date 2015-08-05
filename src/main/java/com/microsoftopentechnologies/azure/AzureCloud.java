@@ -15,10 +15,12 @@
  */
 package com.microsoftopentechnologies.azure;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -28,8 +30,21 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import hudson.security.ACL;
+import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 
+import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.plugins.azure.AzurePublisherSettings;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -47,34 +62,32 @@ import hudson.slaves.OfflineCause;
 import hudson.util.FormValidation;
 import hudson.util.StreamTaskListener;
 
-import com.microsoftopentechnologies.azure.AzureSlaveTemplate;
 import com.microsoftopentechnologies.azure.util.AzureUtil;
 import com.microsoftopentechnologies.azure.util.Constants;
 import com.microsoftopentechnologies.azure.util.FailureStage;
 
+import javax.annotation.CheckForNull;
+
 public class AzureCloud extends Cloud {
-	private final String subscriptionId;
-	private final String serviceManagementCert;
+
+	@Deprecated private transient String subscriptionId;
+	@Deprecated private transient String serviceManagementCert;
+	@Deprecated private transient String serviceManagementURL;
+
+	private String credentialsId;
+
 	private final String passPhrase="";
-	private final String serviceManagementURL;
 	private final int maxVirtualMachinesLimit;
 	private final List<AzureSlaveTemplate> instTemplates;
 
 	public static final Logger LOGGER = Logger.getLogger(AzureCloud.class.getName());
 
 	@DataBoundConstructor
-	public AzureCloud(String id, String subscriptionId, String serviceManagementCert, String serviceManagementURL, 
-			String maxVirtualMachinesLimit, List<AzureSlaveTemplate> instTemplates, String fileName, String fileData) {
-		super(Constants.AZURE_CLOUD_PREFIX+subscriptionId);
-		this.subscriptionId = subscriptionId;
-		this.serviceManagementCert = serviceManagementCert;
-		
-		if (AzureUtil.isNull(serviceManagementURL)) {
-			this.serviceManagementURL = Constants.DEFAULT_MANAGEMENT_URL;
-		} else {
-			this.serviceManagementURL = serviceManagementURL;
-		}
-		
+	public AzureCloud(String id, String credentialsId,
+			String maxVirtualMachinesLimit, List<AzureSlaveTemplate> instTemplates, String fileName, String fileData) throws IOException {
+		super(Constants.AZURE_CLOUD_PREFIX+id);
+		this.credentialsId = credentialsId;
+
 		if (AzureUtil.isNull(maxVirtualMachinesLimit) || !maxVirtualMachinesLimit.matches(Constants.REG_EX_DIGIT)) {
 			this.maxVirtualMachinesLimit = Constants.DEFAULT_MAX_VM_LIMIT;
 		} else {
@@ -89,10 +102,44 @@ public class AzureCloud extends Cloud {
 		readResolve();
 	}
 
-	protected Object readResolve() {
+	public String getCredentialsId() {
+		return credentialsId;
+	}
+
+	protected Object readResolve() throws IOException {
 		for (AzureSlaveTemplate template : instTemplates) {
 			template.azureCloud = this;
 		}
+
+		LOOKUP_CREDENTIALS:
+		if (credentialsId == null) {
+
+			// First, lookup for matchin credentials
+			List<AzurePublisherSettings> candidates = CredentialsProvider.lookupCredentials(AzurePublisherSettings.class,
+					Jenkins.getInstance(),
+					ACL.SYSTEM,
+					Collections.EMPTY_LIST);
+
+			for (AzurePublisherSettings candidate : candidates) {
+				if (candidate.getSubscriptionId().equals(subscriptionId)
+	 			 && candidate.getServiceManagementUrl().equals(serviceManagementURL)
+				 && candidate.getServiceManagementCert().equals(serviceManagementCert)) {
+					credentialsId = candidate.getId();
+					break LOOKUP_CREDENTIALS;
+				}
+			}
+
+			// Migrate legacy data into credentials
+			credentialsId = "azure-cloud-migrated-" + UUID.randomUUID().toString();
+			AzurePublisherSettings credential =
+				new AzurePublisherSettings(CredentialsScope.SYSTEM, credentialsId,
+					"Azure Publisher Settings "+subscriptionId, subscriptionId, "", serviceManagementCert,
+					serviceManagementURL != null ? serviceManagementURL : Constants.DEFAULT_MANAGEMENT_URL);
+
+			CredentialsStore store = CredentialsProvider.lookupStores(Jenkins.getInstance()).iterator().next();
+			store.addCredentials(Domain.global(), credential);
+		}
+
 		return this;
 	}
 
@@ -114,18 +161,6 @@ public class AzureCloud extends Cloud {
 		} else {
 			return true;	
 		}
-	}
-
-	public String getSubscriptionId() {
-		return subscriptionId;
-	}
-
-	public String getServiceManagementCert() {
-		return serviceManagementCert;
-	}
-
-	public String getServiceManagementURL() {
-		return serviceManagementURL;
 	}
 
 	public int getMaxVirtualMachinesLimit() {
@@ -391,31 +426,31 @@ public class AzureCloud extends Cloud {
 		
 		LOGGER.severe("Azure Cloud: doProvision: creating slave ");
 		Computer.threadPoolForRemoting.submit(new Callable<Node>() {
-			
+
 			public Node call() throws Exception {
 				@SuppressWarnings("deprecation")
 				AzureSlave slave = slaveTemplate.provisionSlave(new StreamTaskListener(System.out));
 				// Get virtual machine properties
-				LOGGER.info("Azure Cloud: provision: Getting virtual machine properties for slave "+slave.getNodeName() 
-						+ " with OS "+slave.getOsType());
+				LOGGER.info("Azure Cloud: provision: Getting virtual machine properties for slave " + slave.getNodeName()
+						+ " with OS " + slave.getOsType());
 				slaveTemplate.setVirtualMachineDetails(slave);
-				
+
 				if (slave.getSlaveLaunchMethod().equalsIgnoreCase("SSH")) {
-					 slaveTemplate.waitForReadyRole(slave);
-					 LOGGER.info("Azure Cloud: provision: Waiting for ssh server to come up");
-					 Thread.sleep(2 * 60 * 1000);
-					 LOGGER.info("Azure Cloud: provision: ssh server may be up by this time");
-					 LOGGER.info("Azure Cloud: provision: Adding slave to azure nodes ");
-					 Hudson.getInstance().addNode(slave);
-					 slave.toComputer().connect(false).get();
-				 } else if (slave.getSlaveLaunchMethod().equalsIgnoreCase("JNLP")) {
-					 LOGGER.info("Azure Cloud: provision: Checking for slave status");
-					 slaveTemplate.waitForReadyRole(slave);
-					 Hudson.getInstance().addNode(slave);
-					 
-					 // Wait until node is online
-					 waitUntilOnline(slave);
-				 }
+					slaveTemplate.waitForReadyRole(slave);
+					LOGGER.info("Azure Cloud: provision: Waiting for ssh server to come up");
+					Thread.sleep(2 * 60 * 1000);
+					LOGGER.info("Azure Cloud: provision: ssh server may be up by this time");
+					LOGGER.info("Azure Cloud: provision: Adding slave to azure nodes ");
+					Hudson.getInstance().addNode(slave);
+					slave.toComputer().connect(false).get();
+				} else if (slave.getSlaveLaunchMethod().equalsIgnoreCase("JNLP")) {
+					LOGGER.info("Azure Cloud: provision: Checking for slave status");
+					slaveTemplate.waitForReadyRole(slave);
+					Hudson.getInstance().addNode(slave);
+
+					// Wait until node is online
+					waitUntilOnline(slave);
+				}
 				return slave;
 			}
 		});
@@ -426,7 +461,19 @@ public class AzureCloud extends Cloud {
 	public List<AzureSlaveTemplate> getInstTemplates() {
 		return Collections.unmodifiableList(instTemplates);
 	}
-	
+
+	public @CheckForNull AzurePublisherSettings getCredentials() {
+		return resolveCredentials(credentialsId);
+	}
+
+	static @CheckForNull AzurePublisherSettings resolveCredentials(String credentialsId) {
+		return CredentialsMatchers.firstOrNull(
+				CredentialsProvider.lookupCredentials(AzurePublisherSettings.class,
+						Jenkins.getInstance(), ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
+				CredentialsMatchers.withId(credentialsId));
+	}
+
+
 	@Extension
 	public static class DescriptorImpl extends Descriptor<Cloud> {
 
@@ -442,22 +489,12 @@ public class AzureCloud extends Cloud {
 			return Constants.DEFAULT_MAX_VM_LIMIT;
 		}
 
-		public FormValidation doVerifyConfiguration(@QueryParameter String subscriptionId, @QueryParameter String serviceManagementCert, 
-				@QueryParameter String passPhrase, @QueryParameter String serviceManagementURL) {
-			
-			if (AzureUtil.isNull(subscriptionId)) {
-				return FormValidation.error("Error: Subscription ID is missing");
-			}
-			
-			if (AzureUtil.isNull(serviceManagementCert)) {
-				return FormValidation.error("Error: Management service certificate is missing");
-			}
-			
-			if (AzureUtil.isNull(serviceManagementURL)) {
-				serviceManagementURL = Constants.DEFAULT_MANAGEMENT_URL;
-			}
-			
-			String response = AzureManagementServiceDelegate.verifyConfiguration(subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL);
+		public FormValidation doVerifyConfiguration(@QueryParameter String credentialsId, @QueryParameter String passPhrase) {
+
+			AzurePublisherSettings credentials = resolveCredentials(credentialsId);
+
+			String response = AzureManagementServiceDelegate.verifyConfiguration(
+					credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl());
 			
 			if (response.equalsIgnoreCase("Success")) {
 				return FormValidation.ok(Messages.Azure_Config_Success());
@@ -465,5 +502,18 @@ public class AzureCloud extends Cloud {
 				return FormValidation.error(response);
 			}
 		}
+
+		public ListBoxModel doFillCredentialsIdItems() {
+
+			return new StandardListBoxModel()
+				.withEmptySelection()
+				.withMatching(
+						CredentialsMatchers.always(),
+						CredentialsProvider.lookupCredentials(AzurePublisherSettings.class,
+								Jenkins.getInstance(),
+								ACL.SYSTEM,
+								Collections.<DomainRequirement>emptyList()));
+		}
+
 	}
 }

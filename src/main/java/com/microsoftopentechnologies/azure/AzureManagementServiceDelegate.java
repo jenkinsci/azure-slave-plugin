@@ -49,6 +49,7 @@ import jenkins.slaves.JnlpSlaveAgentProtocol;
 
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
+import org.jenkinsci.plugins.azure.AzurePublisherSettings;
 import org.xml.sax.SAXException;
 
 import com.microsoft.windowsazure.Configuration;
@@ -126,11 +127,13 @@ public class AzureManagementServiceDelegate {
 			LOGGER.info("AzureManagementServiceDelegate: createVirtualMachine: Initializing create virtual "
 					  + "machine request for slaveTemaple " + template.getTemplateName());
 			AzureCloud azureCloud = template.getAzureCloud();
-			String subscriptionID = azureCloud.getSubscriptionId();
+			AzurePublisherSettings credentials = azureCloud.getCredentials();
+			if (credentials == null) throw new AzureCloudException("No credentials set");
+			String subscriptionID = credentials.getSubscriptionId();
 
 			// Load configuration
-			Configuration config = ServiceDelegateHelper.loadConfiguration(subscriptionID, azureCloud.getServiceManagementCert(), 
-					azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL());
+			Configuration config = ServiceDelegateHelper.loadConfiguration(subscriptionID, credentials.getServiceManagementCert(),
+					azureCloud.getPassPhrase(), credentials.getServiceManagementUrl());
 			ComputeManagementClient client = ServiceDelegateHelper.getComputeManagementClient(config);
 			
 			// Get image properties
@@ -442,8 +445,10 @@ public class AzureManagementServiceDelegate {
 	 */
 	public static void setVirtualMachineDetails(AzureSlave azureSlave, AzureSlaveTemplate template) throws Exception {
 		AzureCloud azureCloud = template.getAzureCloud();
-		Configuration config = ServiceDelegateHelper.loadConfiguration(azureCloud.getSubscriptionId(), 
-				azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL());
+		AzurePublisherSettings credentials = azureCloud.getCredentials();
+		if (credentials == null) throw new AzureCloudException("No credentials set");
+		Configuration config = ServiceDelegateHelper.loadConfiguration(credentials.getSubscriptionId(),
+				credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl());
 		ComputeManagementClient client = ServiceDelegateHelper.getComputeManagementClient(config);
 		DeploymentGetResponse response = client.getDeploymentsOperations().getByName(azureSlave.getCloudServiceName(), 
 				azureSlave.getDeploymentName());
@@ -514,10 +519,11 @@ public class AzureManagementServiceDelegate {
 			
 		LOGGER.info("AzureManagementServiceDelegate: parseDeploymentResponse: found slave OS type as "+osType);
 		AzureCloud azureCloud = template.getAzureCloud();
-			
+		AzurePublisherSettings credentials = azureCloud.getCredentials();
+		if (credentials == null) throw new AzureCloudException("No credentials set");
 		try {
-			LOGGER.info("AzureManagementServiceDelegate: parseDeploymentResponse: no of executors "+template.getNoOfParallelJobs());
-			
+			LOGGER.info("AzureManagementServiceDelegate: parseDeploymentResponse: no of executors " + template.getNoOfParallelJobs());
+
 			return new AzureSlave(params.getRoles().get(0).getRoleName(), template.getTemplateName(),
 					template.getTemplateDesc(),osType, template.getSlaveWorkSpace(),
 					template.getNoOfParallelJobs(),
@@ -527,8 +533,8 @@ public class AzureManagementServiceDelegate {
 					null, template.getAdminPassword(),
 					template.getJvmOptions(), template.isShutdownOnIdle(),
 					cloudServiceName, params.getName(),
-					template.getRetentionTimeInMin(), template.getInitScript(), azureCloud.getSubscriptionId(),
-					azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), template.getSlaveLaunchMethod(), false);
+					template.getRetentionTimeInMin(), template.getInitScript(), credentials.getSubscriptionId(),
+					credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl(), template.getSlaveLaunchMethod(), false);
 		} catch (FormException e) {
 			e.printStackTrace();
 			throw new AzureCloudException("AzureManagementServiceDelegate: parseDeploymentResponse: Exception occured while creating slave object"+e);
@@ -553,6 +559,7 @@ public class AzureManagementServiceDelegate {
 			LOGGER.info("AzureManagementServiceDelegate: parseResponse: found slave OS type as "+osType);
 			LOGGER.info("AzureManagementServiceDelegate: parseDeploymentResponse: no of executors "+template.getNoOfParallelJobs());
 			AzureCloud azureCloud = template.getAzureCloud();
+			AzurePublisherSettings credentials = azureCloud.getCredentials();
 			return new AzureSlave(params.getRoleName(), template.getTemplateName(),
 					template.getTemplateDesc(), osType, template.getSlaveWorkSpace(),
 					template.getNoOfParallelJobs(),
@@ -562,8 +569,8 @@ public class AzureManagementServiceDelegate {
 					null, template.getAdminPassword(),
 					template.getJvmOptions(), template.isShutdownOnIdle(),
 					cloudServiceName, deploymentName,
-					template.getRetentionTimeInMin(), template.getInitScript(), azureCloud.getSubscriptionId(), azureCloud.getServiceManagementCert(),
-					azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), template.getSlaveLaunchMethod(), false);
+					template.getRetentionTimeInMin(), template.getInitScript(), credentials.getSubscriptionId(), credentials.getServiceManagementCert(),
+					azureCloud.getPassPhrase(), credentials.getServiceManagementUrl(), template.getSlaveLaunchMethod(), false);
 		} catch (FormException e) {
 			e.printStackTrace();
 			throw new AzureCloudException("AzureManagementServiceDelegate: parseResponse: Exception occured while creating slave object"+e);
@@ -1511,7 +1518,19 @@ public class AzureManagementServiceDelegate {
 		LOGGER.info("AzureManagementServiceDelegate: getAffinityGroupLocation: returning null");
 		return null;
 	}
-    
+
+
+	public static List<String> verifyTemplate(AzurePublisherSettings credentials, String passPhrase,
+			  String maxVirtualMachinesLimit, String templateName, String labels, String location, String virtualMachineSize,
+			  String storageAccountName, String noOfParallelJobs, String imageIdOrFamily, String slaveLaunchMethod, String initScript, String adminUserName,
+			  String adminPassword, String virtualNetworkName, String subnetName, String retentionTimeInMin, String cloudServiceName, String templateStatus,
+			  String jvmOptions, boolean returnOnSingleError) {
+
+		return verifyTemplate(credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl(),
+				maxVirtualMachinesLimit, templateName, labels, location, virtualMachineSize, storageAccountName, noOfParallelJobs, imageIdOrFamily, slaveLaunchMethod,
+				initScript, adminUserName, adminPassword, virtualNetworkName, subnetName, retentionTimeInMin, cloudServiceName, templateStatus, jvmOptions, returnOnSingleError);
+	}
+
 	/**
 	 * Verifies template configuration by making server calls if needed
 	 * @throws Exception 
@@ -1897,5 +1916,5 @@ public class AzureManagementServiceDelegate {
 			return false;
 		}
 	}
-	
+
 }
