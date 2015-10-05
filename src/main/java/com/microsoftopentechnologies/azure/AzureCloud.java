@@ -492,6 +492,9 @@ public class AzureCloud extends Cloud {
 		public FormValidation doVerifyConfiguration(@QueryParameter String credentialsId, @QueryParameter String passPhrase) {
 
 			AzurePublisherSettings credentials = resolveCredentials(credentialsId);
+			if (credentials == null) {
+				return FormValidation.error("Invalid credentials");
+			}
 
 			String response = AzureManagementServiceDelegate.verifyConfiguration(
 					credentials.getSubscriptionId(), credentials.getServiceManagementCert(), passPhrase, credentials.getServiceManagementUrl());
