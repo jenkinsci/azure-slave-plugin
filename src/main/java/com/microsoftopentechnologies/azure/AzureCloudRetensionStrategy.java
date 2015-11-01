@@ -40,7 +40,7 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
 	public long check(final AzureComputer slaveNode) {
         // if idleTerminationMinutes is zero then it means that never terminate the slave instance 
         // an active node or one that is not yet up and running are ignored as well
-        if (idleTerminationMillis > 0 && slaveNode.isIdle() && slaveNode.isProvisioned()
+        if (idleTerminationMillis > 0 && slaveNode.isIdle() && slaveNode.isOnline() //slaveNode.isProvisioned()
                 && idleTerminationMillis < (System.currentTimeMillis() - slaveNode.getIdleStartMilliseconds())) {
             // block node for further tasks
             slaveNode.setAcceptingTasks(false);
