@@ -61,7 +61,8 @@ public class AzureSSHLauncher extends ComputerLauncher {
 		//check if VM is already stopped or stopping or getting deleted , if yes then there is no point in trying to connect
 		//Added this check - since after restarting jenkins master, jenkins is trying to connect to all the slaves although slaves are suspended.
 		try {
-			if (!slave.isVMAliveOrHealthy()) {
+			if (!slave.isVirtualMachineExists() || !slave.isVMAliveOrHealthy()) {
+				LOGGER.info("AzureSSHLauncher: launch: slave either does not exist or in offline state ");
 				return;
 			}
 		} catch (Exception e1) {

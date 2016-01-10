@@ -16,12 +16,9 @@
 package com.microsoftopentechnologies.azure;
 
 import java.io.IOException;
-import java.util.concurrent.Callable;
 import java.util.logging.Logger;
 
 import com.microsoftopentechnologies.azure.exceptions.AzureCloudException;
-import com.microsoftopentechnologies.azure.retry.DefaultRetryStrategy;
-import com.microsoftopentechnologies.azure.util.ExecutionEngine;
 
 import jenkins.model.Jenkins;
 import hudson.Extension;
@@ -49,20 +46,15 @@ public final class AzureSlaveCleanUpTask extends AsyncPeriodicWork {
 							continue; //If agent is not marked for deletion, it means it is active.
 						}
 						
-						Callable<Void> task = new Callable<Void>() {
-							public Void call() throws Exception {
-								slaveNode.idleTimeout();
-								return null;
-							}
-						};
-						
 						try {
-							ExecutionEngine.executeWithRetry(task, new DefaultRetryStrategy(3 /*max retries*/, 
-									10 /*Default backoff in seconds*/ , 1 * 60 /* Max. timeout in seconds */));
+							slaveNode.idleTimeout();
 				         } catch (AzureCloudException exception) {
 				        	// No need to throw exception back, just log and move on. 
 				        	 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node "+exception);
-				         }
+				         } catch (Exception e) {
+							// TODO Auto-generated catch block
+				        	 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node "+e);
+						}
 					} else {
 						Jenkins.getInstance().removeNode(slaveNode);
 					}
@@ -72,7 +64,7 @@ public final class AzureSlaveCleanUpTask extends AsyncPeriodicWork {
 	}
 
 	public long getRecurrencePeriod() {
-		// Every 5 minutes
-		return 15 * 60 * 1000;
+		// Every 30 minutes
+		return 30 * 60 * 1000;
 	}
 }

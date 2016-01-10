@@ -275,6 +275,10 @@ public class AzureSlave extends AbstractCloudSlave  {
 		return AzureManagementServiceDelegate.isVMAliveOrHealthy(this);
 	}
 	
+	public boolean isVirtualMachineExists() throws Exception {	
+		return AzureManagementServiceDelegate.isVirtualMachineExists(this);
+	}
+	
 	public void setTemplateStatus(String templateStatus, String templateStatusDetails) {
 		AzureCloud azureCloud = getCloud();
 		AzureSlaveTemplate slaveTemplate = azureCloud.getAzureSlaveTemplate(templateName);
