@@ -29,7 +29,6 @@ import com.microsoftopentechnologies.azure.util.FailureStage;
 import com.microsoftopentechnologies.azure.remote.AzureSSHLauncher;
 
 import hudson.Extension;
-import hudson.model.Hudson;
 import hudson.model.TaskListener;
 import hudson.model.Descriptor.FormException;
 import hudson.slaves.AbstractCloudComputer;
