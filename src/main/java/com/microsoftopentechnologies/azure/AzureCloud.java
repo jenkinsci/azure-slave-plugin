@@ -228,11 +228,13 @@ public class AzureCloud extends Cloud {
 												Thread.sleep(30 * 1000); // wait for 30 seconds
 												 AzureManagementServiceDelegate.setVirtualMachineDetails(slaveNode, slaveTemplate);
 												 Hudson.getInstance().addNode(slaveNode);
-												 if (slaveNode.getSlaveLaunchMethod().equalsIgnoreCase("SSH")) 
+												 if (slaveNode.getSlaveLaunchMethod().equalsIgnoreCase("SSH")) { 
 													 slaveNode.toComputer().connect(false).get();
-												 else
+													 azureComputer.setProvisioned(true);
+												 } else {
 													// Wait until node is online
 													 waitUntilOnline(slaveNode);
+												 }
 												 azureComputer.setAcceptingTasks(true);
 												 return slaveNode;
 											} else {
@@ -263,6 +265,7 @@ public class AzureCloud extends Cloud {
 									 LOGGER.info("Azure Cloud: provision: Adding slave to azure nodes ");
 									 Hudson.getInstance().addNode(slave);
 									 slave.toComputer().connect(false).get();
+									 ((AzureComputer) slave.toComputer()).setProvisioned(true);
 								 } else if (slave.getSlaveLaunchMethod().equalsIgnoreCase("JNLP")) {
 									 LOGGER.info("Azure Cloud: provision: Checking for slave status");
 									 // slaveTemplate.waitForReadyRole(slave);

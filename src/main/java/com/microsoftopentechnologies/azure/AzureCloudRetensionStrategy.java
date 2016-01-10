@@ -15,6 +15,7 @@
  */
 package com.microsoftopentechnologies.azure;
 
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -30,14 +31,29 @@ import hudson.util.TimeUnit2;
 
 public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer>  {
 	public final long idleTerminationMillis;
+    private transient ReentrantLock slaveNodeLock;
+
 	private static final Logger LOGGER = Logger.getLogger(AzureManagementServiceDelegate.class.getName());
 
 	@DataBoundConstructor
 	public AzureCloudRetensionStrategy(int idleTerminationMinutes) {
+		readResolve();
 		this.idleTerminationMillis = TimeUnit2.MINUTES.toMillis(idleTerminationMinutes);
 	}
-
+	
 	public long check(final AzureComputer slaveNode) {
+        if (! slaveNodeLock.tryLock()) {
+            return 1;
+        } else {
+            try {
+                return _check(slaveNode);
+            } finally {
+            	slaveNodeLock.unlock();
+            }
+        }
+    }
+
+	private long _check(final AzureComputer slaveNode) {
         // if idleTerminationMinutes is zero then it means that never terminate the slave instance 
         // an active node or one that is not yet up and running are ignored as well
         if (idleTerminationMillis > 0 && slaveNode.isIdle() && slaveNode.isProvisioned()
@@ -46,28 +62,15 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
             slaveNode.setAcceptingTasks(false);
             LOGGER.info("AzureCloudRetensionStrategy: check: Idle timeout reached for slave: "+slaveNode.getName());
 
-            java.util.concurrent.Callable<Void> task = new java.util.concurrent.Callable<Void>() {
-                public Void call() throws Exception {
-                    LOGGER.info("AzureCloudRetensionStrategy: going to idleTimeout slave: "+slaveNode.getName());
-                    slaveNode.getNode().idleTimeout();
-                    return null;
-                }
-            };
-
             try {
-                ExecutionEngine.executeWithRetry(task,  new LinearRetryForAllExceptions(30 /*maxRetries*/, 30/*waitinterval*/, 30 * 60/*timeout*/));
+            	slaveNode.getNode().idleTimeout();
             } catch (AzureCloudException ae) {
-                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName());
+                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ " Error code "+ae.getMessage());
             } catch (Exception e) {
-                LOGGER.info("AzureCloudRetensionStrategy: execute: Exception occured while calling timeout on node, \n"
-                            + "Error code "+e.getMessage());
-                // We won't get exception for RNF , so for other exception types we can retry
-                if (e.getMessage().contains("not found in the currently deployed service")) {
-                    LOGGER.info("AzureCloudRetensionStrategy: execute: Slave does not exist in the subscription anymore, setting shutdownOnIdle to True");
-                    slaveNode.getNode().setShutdownOnIdle(true);
-                }
+                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ "Error code "+e.getMessage());
+                
             }
-            // close channel
+            // close channel? Need to see if below code solved any issues.
             try {
                 slaveNode.setProvisioned(false);
                 if (slaveNode.getChannel() != null) {
@@ -85,6 +88,11 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
 		//TODO: check when this method is getting called and add code accordingly
 		LOGGER.info("AzureCloudRetensionStrategy: start: azureComputer name "+azureComputer.getDisplayName());
 		azureComputer.connect(false);
+	}
+	
+	protected Object readResolve() {
+		slaveNodeLock = new ReentrantLock(false);
+		return this;
 	}
 
 	public static class DescriptorImpl extends Descriptor<RetentionStrategy<?>> {

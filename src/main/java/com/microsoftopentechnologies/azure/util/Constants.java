@@ -86,5 +86,6 @@ public class Constants {
 	public static final String STOPPING_VM_STATUS = "StoppingVM";
 	public static final String STOPPING_ROLE_STATUS = "StoppingRole";
 	public static final String STOPPED_DEALLOCATED_VM_STATUS = "StoppedDeallocated";
+	public static final String ROLE_STATE_UNKNOWN = "RoleStateUnknown";
 	
 }
