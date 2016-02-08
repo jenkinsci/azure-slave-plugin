@@ -560,6 +560,7 @@ public class AzureManagementServiceDelegate {
 			LOGGER.info("AzureManagementServiceDelegate: parseDeploymentResponse: no of executors "+template.getNoOfParallelJobs());
 			AzureCloud azureCloud = template.getAzureCloud();
 			AzurePublisherSettings credentials = azureCloud.getCredentials();
+			if (credentials == null) throw new AzureCloudException("No credentials set");
 			return new AzureSlave(params.getRoleName(), template.getTemplateName(),
 					template.getTemplateDesc(), osType, template.getSlaveWorkSpace(),
 					template.getNoOfParallelJobs(),

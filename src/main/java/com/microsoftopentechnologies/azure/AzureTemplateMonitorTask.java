@@ -26,6 +26,7 @@ import hudson.model.AsyncPeriodicWork;
 import hudson.model.TaskListener;
 import hudson.model.Hudson;
 import com.microsoftopentechnologies.azure.util.Constants;
+import org.jenkinsci.plugins.azure.AzurePublisherSettings;
 
 @Extension
 public final class AzureTemplateMonitorTask extends AsyncPeriodicWork {
@@ -67,7 +68,9 @@ public final class AzureTemplateMonitorTask extends AsyncPeriodicWork {
 	public synchronized static void registerTemplate(AzureSlaveTemplate template) {
 		if (templates == null) 
 			templates = new HashMap<String, String>();
-		templates.put(template.getTemplateName(), Constants.AZURE_CLOUD_PREFIX+template.getAzureCloud().getCredentials().getSubscriptionId());
+		final AzurePublisherSettings credentials = template.getAzureCloud().getCredentials();
+		if (credentials == null) throw new IllegalStateException("No credentials set");
+		templates.put(template.getTemplateName(), Constants.AZURE_CLOUD_PREFIX + credentials.getSubscriptionId());
 	}
 
 	public long getRecurrencePeriod() {

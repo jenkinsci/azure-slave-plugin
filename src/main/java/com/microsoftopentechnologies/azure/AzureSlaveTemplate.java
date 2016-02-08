@@ -341,6 +341,7 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 	
 	public int getVirtualMachineCount() throws Exception {
 		final AzurePublisherSettings credentials = azureCloud.getCredentials();
+		if (credentials == null) throw new AzureCloudException("No credentials set");
 
 		Configuration config = ServiceDelegateHelper.loadConfiguration(credentials.getSubscriptionId(),
 				credentials.getServiceManagementCert(), azureCloud.getPassPhrase(), credentials.getServiceManagementUrl());
