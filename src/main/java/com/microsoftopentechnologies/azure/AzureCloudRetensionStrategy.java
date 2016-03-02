@@ -53,11 +53,10 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
         }
     }
 
-	private long _check(final AzureComputer slaveNode) {
+    private long _check(final AzureComputer slaveNode) {
         // if idleTerminationMinutes is zero then it means that never terminate the slave instance 
         // an active node or one that is not yet up and running are ignored as well
-        if (idleTerminationMillis > 0 && slaveNode.isIdle() && slaveNode.isProvisioned()
-                && idleTerminationMillis < (System.currentTimeMillis() - slaveNode.getIdleStartMilliseconds())) {
+        if (idleTerminationMillis > 0 && slaveNode.isIdle() && idleTerminationMillis < (System.currentTimeMillis() - slaveNode.getIdleStartMilliseconds())) {
             // block node for further tasks
             slaveNode.setAcceptingTasks(false);
             LOGGER.info("AzureCloudRetensionStrategy: check: Idle timeout reached for slave: "+slaveNode.getName());
@@ -72,7 +71,6 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
             }
             // close channel? Need to see if below code solved any issues.
             try {
-                slaveNode.setProvisioned(false);
                 if (slaveNode.getChannel() != null) {
                     slaveNode.getChannel().close();
                 }
