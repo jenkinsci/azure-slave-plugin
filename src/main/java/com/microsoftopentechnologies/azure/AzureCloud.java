@@ -102,9 +102,9 @@ public class AzureCloud extends Cloud {
 		// return false if there is no template
 		if (template == null) {
 			if (label != null) {
-				LOGGER.info("Azurecloud: canProvision: template not found for label " + label.getDisplayName());
+				LOGGER.finer("Azurecloud: canProvision: template not found for label " + label.getDisplayName());
 			} else {
-				LOGGER.info("Azurecloud: canProvision: template not found for empty label.	All templates exclusive to jobs that require that template." );
+				LOGGER.finer("Azurecloud: canProvision: template not found for empty label.	All templates exclusive to jobs that require that template." );
 			}
 			return false;
 		} else if (template.getTemplateStatus().equalsIgnoreCase(Constants.TEMPLATE_STATUS_DISBALED)) {
@@ -211,7 +211,6 @@ public class AzureCloud extends Cloud {
 							
 							// Verify if there are any shutdown(deallocated) nodes that can be reused.
 							for (Computer slaveComputer : Jenkins.getInstance().getComputers()) {
-								LOGGER.info("Azure Cloud: provision: got slave computer "+slaveComputer.getName());
 								if (slaveComputer instanceof AzureComputer && slaveComputer.isOffline()) {
 									AzureComputer azureComputer = (AzureComputer)slaveComputer;
 									AzureSlave slaveNode = azureComputer.getNode();
@@ -241,11 +240,11 @@ public class AzureCloud extends Cloud {
 												slaveNode.setCleanupAction(CleanupAction.TERMINATE);
 											}
 										} catch (Exception e) {
-											// TODO Auto-generated catch block
+											// Mark the node for deletion
+                                            slaveNode.setCleanupAction(CleanupAction.TERMINATE);
 											e.printStackTrace();
 										}
 									}
-									
 								}
 							}
 							
@@ -330,9 +329,15 @@ public class AzureCloud extends Cloud {
 	private static boolean isNodeEligibleForReuse(AzureSlave slaveNode, AzureSlaveTemplate slaveTemplate) {
 
 		// Do not reuse slave if it is marked for deletion
-		if (slaveNode.getCleanupAction() != CleanupAction.TERMINATE) {
+
+		if (slaveNode.getCleanupAction() == CleanupAction.TERMINATE) {
 			return false;
 		}
+        
+        // Do not use if the template isn't meant to be reused.
+        if (!slaveTemplate.isShutdownOnIdle()) {
+            return false;
+        }
 		
 		// Check for null label and mode.
 		if (AzureUtil.isNull(slaveNode.getLabelString()) && (slaveNode.getMode() == Node.Mode.NORMAL)) {

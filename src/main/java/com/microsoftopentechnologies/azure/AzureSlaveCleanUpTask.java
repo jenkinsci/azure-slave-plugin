@@ -43,16 +43,26 @@ public final class AzureSlaveCleanUpTask extends AsyncPeriodicWork {
                 // Only clean up offline nodes.
 				if (azureComputer.isOffline()) {
 					if(AzureManagementServiceDelegate.isVirtualMachineExists(slaveNode)) {
-						try {
-							slaveNode.cleanup();
-				         } catch (AzureCloudException exception) {
-				        	// No need to throw exception back, just log and move on. 
-				        	 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node "+exception);
-				         } catch (Exception e) {
-							// TODO Auto-generated catch block
-				        	 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node "+e);
-						}
+                        // Retry 10 times, since there may be exclusive locks and cleaning up
+                        // is very valuable.
+                        int tries = 0;
+                        int maxTries = 10;
+                        do {
+                            try {
+                                slaveNode.cleanup();
+                                break;
+                            } catch (AzureCloudException exception) {
+                                // No need to throw exception back, just log and move on. 
+                                 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node (" + (maxTries-tries-1) + " tries remaining) " +exception);
+                            } catch (Exception e) {
+                                // TODO Auto-generated catch block
+                                LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node (" + (maxTries-tries-1) + " tries remaining) " +e);
+                            }
+                            Thread.sleep(18 * 1000);
+                        }
+                        while (++tries < maxTries);
 					} else {
+                        LOGGER.info("AzureSlaveCleanUpTask: execute: removing node " + slaveNode.getNodeName());
 						Jenkins.getInstance().removeNode(slaveNode);
 					}
 				}

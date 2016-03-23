@@ -260,11 +260,13 @@ public class AzureSlave extends AbstractCloudSlave  {
         if (getCleanupAction() == CleanupAction.TERMINATE) { 
             LOGGER.info("AzureSlave: cleanup: Terminate called for slave " + this.getDisplayName());
             AzureManagementServiceDelegate.terminateVirtualMachine(this, true);
+            LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " succesfully deleted.");
             Jenkins.getInstance().removeNode(this);
         } else if (getCleanupAction() == CleanupAction.SHUTDOWN) {
             // If we aren't to delete it, then we should just shut it down.
             LOGGER.info("AzureSlave: cleanup: Shutdown called for slave " + this.getDisplayName());
             AzureManagementServiceDelegate.shutdownVirtualMachine(this);
+            LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " succesfully shutdown.");
         }
         else {
             LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " is offline but not marked for shutdown/deletion.");

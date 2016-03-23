@@ -68,9 +68,7 @@ public class AzureComputer extends AbstractCloudComputer<AzureSlave>  {
 		LOGGER.info("AzureComputer : deleteSlave: Deleting " + getName() + " slave");
 	
 		AzureSlave slave = getNode();
-		if (slave.getChannel() != null) {
-			slave.getChannel().close();
-		}
+		this.setTemporarilyOffline(true, OfflineCause.create(Messages._Delete_Slave()));
 		try {
 			slave.cleanup();
 		} catch (Exception e) {

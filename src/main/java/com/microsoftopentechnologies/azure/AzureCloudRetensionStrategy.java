@@ -68,24 +68,10 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
             slaveNode.setAcceptingTasks(false);
             
             try {
-                // Call idle timeout, which will set the machine offline appropriately based on its 
-                // properties (shutdown or delete when idle)
-            	slaveNode.getNode().idleTimeout();
-            } catch (AzureCloudException ae) {
-                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ " Error code "+ae.getMessage());
-            } catch (Exception e) {
-                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ "Error code "+e.getMessage());
-            }
-            
-            // close channel? Need to see if below code solved any issues.
-            try {
-                slaveNode.setProvisioned(false);
-                if (slaveNode.getChannel() != null) {
-                    slaveNode.getChannel().close();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                LOGGER.info("AzureCloudRetensionStrategy: check: exception occured while closing channel for: " + slaveNode.getName());
+               slaveNode.getNode().idleTimeout();
+            } 
+            catch (Exception e) {
+                LOGGER.info("AzureCloudRetensionStrategy: check: could not perform idle shutdown/delete prep for "+slaveNode.getName()+ " Error code "+e.getMessage());
             }
         }
         return 1;
