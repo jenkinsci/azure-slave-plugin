@@ -40,14 +40,11 @@ public final class AzureSlaveCleanUpTask extends AsyncPeriodicWork {
 				AzureComputer azureComputer = (AzureComputer)computer;
 				final AzureSlave slaveNode = azureComputer.getNode();
 				
+                // Only clean up offline nodes.
 				if (azureComputer.isOffline()) {
 					if(AzureManagementServiceDelegate.isVirtualMachineExists(slaveNode)) {
-						if (!slaveNode.isDeleteSlave()) { 
-							continue; //If agent is not marked for deletion, it means it is active.
-						}
-						
 						try {
-							slaveNode.idleTimeout();
+							slaveNode.cleanup();
 				         } catch (AzureCloudException exception) {
 				        	// No need to throw exception back, just log and move on. 
 				        	 LOGGER.info("AzureSlaveCleanUpTask: execute: failed to remove node "+exception);

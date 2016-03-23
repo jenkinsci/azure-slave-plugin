@@ -21,6 +21,7 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.microsoftopentechnologies.azure.AzureSlave;
 import com.microsoftopentechnologies.azure.AzureComputer;
+import com.microsoftopentechnologies.azure.CleanupAction;
 import com.microsoftopentechnologies.azure.Messages;
 import com.microsoftopentechnologies.azure.util.AzureUtil;
 import com.microsoftopentechnologies.azure.util.Constants;
@@ -79,7 +80,7 @@ public class AzureSSHLauncher extends ComputerLauncher {
 		} catch (Exception e) {
 			LOGGER.info("AzureSSHLauncher: launch: Got exception while connecting to slave " +e.getMessage());
 			LOGGER.info("AzureSSHLauncher: launch: marking slave for delete ");
-			slave.setDeleteSlave(true);
+			slave.setCleanupAction(CleanupAction.TERMINATE);
 			
 			// Checking if we need to mark template as disabled. Need to re-visit this logic based on tests.
 			if (e instanceof ConnectException) {
@@ -303,7 +304,7 @@ public class AzureSSHLauncher extends ComputerLauncher {
 		if (slave.toComputer() != null) {
 			slave.toComputer().setTemporarilyOffline(true, OfflineCause.create(Messages._Slave_Failed_To_Connect()));
 		}
-		slave.setDeleteSlave(true);
+		slave.setCleanupAction(CleanupAction.TERMINATE);
 	}
 
     @Override

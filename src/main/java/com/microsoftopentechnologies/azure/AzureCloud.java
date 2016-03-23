@@ -238,7 +238,7 @@ public class AzureCloud extends Cloud {
 												 azureComputer.setAcceptingTasks(true);
 												 return slaveNode;
 											} else {
-												slaveNode.setDeleteSlave(true);
+												slaveNode.setCleanupAction(CleanupAction.TERMINATE);
 											}
 										} catch (Exception e) {
 											// TODO Auto-generated catch block
@@ -329,8 +329,8 @@ public class AzureCloud extends Cloud {
 	 */
 	private static boolean isNodeEligibleForReuse(AzureSlave slaveNode, AzureSlaveTemplate slaveTemplate) {
 
-		// Do not reuse slave if it is marked for deletion.  
-		if (slaveNode.isDeleteSlave()) {
+		// Do not reuse slave if it is marked for deletion
+		if (slaveNode.getCleanupAction() != CleanupAction.TERMINATE) {
 			return false;
 		}
 		
@@ -351,7 +351,7 @@ public class AzureCloud extends Cloud {
 		if (slave.toComputer() != null) {
 			slave.toComputer().setTemporarilyOffline(true, OfflineCause.create(Messages._Slave_Failed_To_Connect()));
 		}
-		slave.setDeleteSlave(true);
+		slave.setCleanupAction(CleanupAction.TERMINATE);
 	}
 	
 	public void doProvision(StaplerRequest req, StaplerResponse rsp, @QueryParameter String templateName) throws Exception {
