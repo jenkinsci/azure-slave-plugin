@@ -951,7 +951,7 @@ public class AzureManagementServiceDelegate {
 
 	/** Returns current date in MMddhhmmss */
 	private static String getCurrentDate() {
-		Format formatter = new SimpleDateFormat("MMddhhmmss");
+		Format formatter = new SimpleDateFormat("MMddHHmmss");
 		return formatter.format(new Date(System.currentTimeMillis()));
 	}
 
