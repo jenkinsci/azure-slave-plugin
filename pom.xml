@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.509</version>
+		<version>2.9</version>
 	</parent>
 
 	<artifactId>azure-slave-plugin</artifactId>
@@ -16,9 +16,10 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <jenkins.version>1.580</jenkins.version>
 	</properties>
 
-	<licenses>
+	<licenses> 
 		<license>
 			<name>Apache License, Version 2.0 (the "License")</name>
 			<comments>Licensed under the Apache License, Version 2.0 (the "License").</comments>
@@ -80,7 +81,7 @@
 	 	<dependency>
       		<groupId>org.apache.httpcomponents</groupId>
       		<artifactId>httpclient</artifactId>
-      		<version>4.3.3</version>
+      		<version>4.5</version>
     	</dependency>
     
     	<dependency>
@@ -106,14 +107,12 @@
       		<groupId>com.sun.jersey</groupId>
       		<artifactId>jersey-json</artifactId>
       		<version>1.18</version>
-    	</dependency>
-    	
-    	<dependency>
-      		<groupId>org.bouncycastle</groupId>
-      		<artifactId>bcprov-jdk16</artifactId>
-      		<version>1.46</version>
-    	</dependency>
-		
+    	</dependency>    	
+        <dependency>
+          <groupId>org.jenkins-ci.plugins</groupId>
+          <artifactId>bouncycastle-api</artifactId>
+          <version>1.0</version>
+        </dependency>
 		<dependency>
 			<groupId>com.jcraft</groupId>
 			<artifactId>jsch</artifactId>
@@ -156,6 +155,13 @@
          <artifactId>maven-release-plugin</artifactId>
          <version>2.5</version>
        </plugin>
+       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <additionalparam>-Xdoclint:none</additionalparam>
+        </configuration>
+      </plugin>
      </plugins> 
    </build> 
 </project>
