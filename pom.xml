@@ -16,7 +16,8 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <jenkins.version>1.580</jenkins.version>
+        <jenkins.version>1.609</jenkins.version>
+        <findbugs.failOnError>false</findbugs.failOnError>
 	</properties>
 
 	<licenses> 
