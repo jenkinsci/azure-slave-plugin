@@ -6,15 +6,7 @@ Jenkins Plugin to create Azure slaves.
 Supports creating 
 
 1. Windows slave on Azure Cloud using SSH and JNLP:
-  * For Windows images to launch via SSH, the image needs to be preconfigured with ssh and a JDK.:
-    + [Win32 OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) works well, follow [their install instructions](https://github.com/PowerShell/Win32-OpenSSH/wiki/Install-Win32-OpenSSH).
-    + Make sure to update the `sftp` subsystem line to point to the correct sftp-server.exe (this is mandatory for Jenkins to launch):
-
-    ```
-    Subsystem   sftp    C:\Program Files\OpenSSH-Win64\sftp-server.exe
-    ```
-
-   For preparing custom Windows image, refer to [Azure documentation](http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-capture-image-windows-server/).
+  * For preparing custom Windows image, refer to [Azure documentation](http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-capture-image-windows-server/).
 2. Linux slaves on Azure Cloud using SSH:
   * For preparing custom Linux image, refer to [Azure documentation]( http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/).
 
@@ -94,7 +86,7 @@ Supports creating
       sudo apt-get install -y ant
 ```
 
-## Template configuration for Windows images with launch method JNLP.
+## Template configuration for Windows images with launch method JNLP
 1. Make sure to follow the instructions specified above for JNLP.
 2. If the Jenkins master does not have a security configuration, leave the Init script blank for the default script to execute on the slave.
 3. If the Jenkins master has a security configuration, then refer to the script at https://gist.github.com/snallami/5aa9ea2c57836a3b3635 and modify the script with the proper Jenkins credentials.
@@ -104,7 +96,17 @@ Supports creating
 
    The below statement in the script needs to be modified:
    $credentails="username:apitoken"
-   
+
+## Template configuration for Windows images with launch method SSH
+For Windows images to launch via SSH, the image needs to be preconfigured with ssh and a JDK.
+
+1. [Win32 OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) works well, follow [their install instructions](https://github.com/PowerShell/Win32-OpenSSH/wiki/Install-Win32-OpenSSH).
+2. Make sure to update the `sftp` subsystem line to point to the correct sftp-server.exe (this is mandatory for Jenkins to launch):
+
+```
+Subsystem   sftp    C:\Program Files\OpenSSH-Win64\sftp-server.exe
+```
+
 ## Create a Jenkins job that runs on a Linux slave node on Azure
 1. In the Jenkins dashboard, click New Item/Job.
 2. Enter a name for the task/Job you are creating.
