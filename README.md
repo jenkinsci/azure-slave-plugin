@@ -6,7 +6,14 @@ Jenkins Plugin to create Azure slaves.
 Supports creating 
 
 1. Windows slave on Azure Cloud using SSH and JNLP
-  * For windows images to launch via SSH, the image needs to be preconfigured with ssh.  
+  * For Windows images to launch via SSH, the image needs to be preconfigured with ssh.:
+    + [Win32 OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) works well, follow [their install instructions](https://github.com/PowerShell/Win32-OpenSSH/wiki/Install-Win32-OpenSSH).
+    + Make sure to update the `sftp` subsystem line to point to the correct sftp-server.exe (this is mandatory for Jenkins to launch):
+    
+    ```
+    Subsystem   sftp    C:\Program Files\OpenSSH-Win64\sftp-server.exe
+    ```
+
    For preparing custom windows image, refer to [Azure documentation](http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-capture-image-windows-server/)
 2. Linux slaves on Azure Cloud using SSH
   * For preparing custom linux image, refer to [Azure documentation]( http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/)
