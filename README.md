@@ -6,7 +6,7 @@ Jenkins Plugin to create Azure slaves.
 Supports creating 
 
 1. Windows slave on Azure Cloud using SSH and JNLP:
-  * For preparing custom Windows image, refer to [Azure documentation](http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-capture-image-windows-server/).
+  * For preparing custom Windows image, refer to [Azure documentation](http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-capture-image-windows-server/). (**Make sure** you're using the classic Azure Portal at [manage.windowsazure.com](https://manage.windowsazure.com/).)
 2. Linux slaves on Azure Cloud using SSH:
   * For preparing custom Linux image, refer to [Azure documentation]( http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/).
 
