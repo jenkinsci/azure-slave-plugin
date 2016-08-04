@@ -115,6 +115,15 @@ public class AzureSSHLauncher extends ComputerLauncher {
                 } else {
                     LOGGER.info("AzureSSHLauncher: launch: init script got executed successfully");
                 }
+                /* Create a new session after the init script has executed to
+                * make sure we pick up whatever new settings have been set up
+                * for our user
+                *
+                * https://issues.jenkins-ci.org/browse/JENKINS-37160
+                */
+                session.disconnect();
+                session = connectToSsh(slave, logger);
+
                 // Create tracking file
                 executeRemoteCommand(session, "touch ~/.azure-slave-init", logger);
             }
