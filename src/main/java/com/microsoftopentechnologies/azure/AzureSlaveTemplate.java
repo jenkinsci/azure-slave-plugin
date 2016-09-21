@@ -341,13 +341,14 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 		return AzureManagementServiceDelegate.getVirtualMachineCount(client);
 	}
 	
-	public List<String> verifyTemplate() throws Exception {
+	public AzureManagementServiceDelegate.VerificationResult verifyTemplate() throws Exception {
 		return AzureManagementServiceDelegate.verifyTemplate
 				(azureCloud.getSubscriptionId(), azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(),
 				 azureCloud.getMaxVirtualMachinesLimit()+"", templateName, labels, location, virtualMachineSize, storageAccountName, noOfParallelJobs+"", 
 				 imageIdOrFamily,slaveLaunchMethod, initScript, adminUserName, adminPassword, virtualNetworkName, subnetName,
 				 retentionTimeInMin+"", cloudServiceName, templateStatus, jvmOptions, true);
 	}
+
 
     @Extension
 	public static final class DescriptorImpl extends Descriptor<AzureSlaveTemplate> {
@@ -679,18 +680,18 @@ public class AzureSlaveTemplate implements Describable<AzureSlaveTemplate> {
 				@QueryParameter String retentionTimeInMin, @QueryParameter String cloudServiceName,
 				@QueryParameter String templateStatus, @QueryParameter String jvmOptions) {
 			
-			List<String> errors = AzureManagementServiceDelegate.verifyTemplate(
+			AzureManagementServiceDelegate.VerificationResult result = AzureManagementServiceDelegate.verifyTemplate(
 					subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL, maxVirtualMachinesLimit,
 					templateName, labels, location, virtualMachineSize, storageAccountName, noOfParallelJobs, imageIdOrFamily,
 					slaveLaunchMethod, initScript, adminUserName, adminPassword, virtualNetworkName, subnetName,
 					retentionTimeInMin, cloudServiceName,templateStatus,jvmOptions, false);
 			
 			
-			if (errors.size() > 0) {
+			if (result.hasError()) {
 				StringBuilder errorString = new StringBuilder(Messages.Azure_GC_Template_Error_List()).append("\n");
 				
-				for (int i = 0 ; i < errors.size(); i++) {
-					errorString.append(i+1).append(": ").append(errors.get(i)).append("\n");
+				for (int i = 0 ; i < result.errors.size(); i++) {
+					errorString.append(i+1).append(": ").append(result.errors.get(i)).append("\n");
 				}
 
 				return FormValidation.error(errorString.toString()) ;

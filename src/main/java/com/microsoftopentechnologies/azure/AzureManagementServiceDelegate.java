@@ -15,6 +15,7 @@ Copyright 2014 Microsoft Open Technologies, Inc.
  */
 package com.microsoftopentechnologies.azure;
 
+import com.microsoftopentechnologies.azure.util.*;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
 
@@ -101,16 +102,90 @@ import com.microsoft.windowsazure.management.storage.models.StorageAccountListRe
 import com.microsoft.windowsazure.management.storage.models.StorageAccountProperties;
 import com.microsoftopentechnologies.azure.exceptions.AzureCloudException;
 import com.microsoftopentechnologies.azure.retry.ExponentialRetryStrategy;
-import com.microsoftopentechnologies.azure.util.AzureUtil;
-import com.microsoftopentechnologies.azure.util.Constants;
-import com.microsoftopentechnologies.azure.util.ExecutionEngine;
-import com.microsoftopentechnologies.azure.util.FailureStage;
+
 /**
  * Business delegate class which handles calls to Azure management service SDK.
  * @author Suresh Nallamilli (snallami@gmail.com)
  *
  */
+
+
+
 public class AzureManagementServiceDelegate {
+
+	private enum ValidationStep{
+		UNKNOWN,
+		VM_LIMIT, CLOUD_SERVICE_NAME, IMAGE_ID, VIRTUAL_NETWORK,
+
+	}
+	private static class ValidationStepResult{
+
+		private ValidationStep validationStep;
+		private String result;
+
+		public ValidationStepResult(ValidationStep validationStep, String result) {
+			this.validationStep = validationStep;
+			this.result = result;
+		}
+
+		public ValidationStep getValidationStep() {
+			return validationStep;
+		}
+
+		public String getResult() {
+			return result;
+		}
+	}
+	public static class VerificationResult{
+
+
+		List<String> errors;
+		private boolean vmLimitReached;
+
+		public List<String> getErrors() {
+			return errors;
+		}
+
+		public boolean isVmLimitReached() {
+			return vmLimitReached;
+		}
+
+
+		public VerificationResult() {
+			errors = new ArrayList<String>();
+		}
+
+
+		public void addValidationResultIfFailed(String validationResult) {
+			if (!validationResult.equalsIgnoreCase(Constants.OP_SUCCESS)) {
+				errors.add(validationResult);
+
+			}
+		}
+
+		public void addValidationResultIfFailed(ValidationStepResult stepResult) {
+			String validationResult = stepResult.getResult();
+			if (!validationResult.equalsIgnoreCase(Constants.OP_SUCCESS)) {
+				errors.add(validationResult);
+				if(stepResult.getValidationStep() == ValidationStep.VM_LIMIT){
+					vmLimitReached = true;
+				}
+			}
+		}
+		public void addError(String error) {
+			errors.add(error);
+		}
+
+
+		public boolean hasError(){
+			return errors.size() >0  ;
+		}
+	}
+
+
+
+
+
 	private static final Logger LOGGER = Logger.getLogger(AzureManagementServiceDelegate.class.getName());
 
     /**
@@ -1511,114 +1586,115 @@ public class AzureManagementServiceDelegate {
 		LOGGER.info("AzureManagementServiceDelegate: getAffinityGroupLocation: returning null");
 		return null;
 	}
-    
+
+
 	/**
 	 * Verifies template configuration by making server calls if needed
 	 * @throws Exception 
 	 */
-	public static List<String> verifyTemplate(String subscriptionId, String serviceManagementCert, String passPhrase,
+	public static VerificationResult verifyTemplate(String subscriptionId, String serviceManagementCert, String passPhrase,
 			String serviceManagementURL, String maxVirtualMachinesLimit, String templateName, String labels, String location, String virtualMachineSize,
 			String storageAccountName, String noOfParallelJobs, String imageIdOrFamily, String slaveLaunchMethod, String initScript, String adminUserName,
 			String adminPassword, String virtualNetworkName, String subnetName, String retentionTimeInMin, String cloudServiceName,String templateStatus,
 			String jvmOptions, boolean returnOnSingleError)  {
 		
-		List<String> errors = new ArrayList<String>();
+		VerificationResult verificationResult = new VerificationResult();
 		Configuration config = null;
 		
 		// Load configuration
 		try {
 			config = ServiceDelegateHelper.loadConfiguration(subscriptionId, serviceManagementCert, passPhrase, serviceManagementURL);
 		} catch (Exception e) {
-			errors.add("Error occured while validating Azure Profile");
-			return errors;
+			verificationResult.addError("Error occured while validating Azure Profile");
+			return verificationResult;
 		}
 		
 		// Verify if profile configuration is valid
 		String validationResult = verifyAzureProfileConfiguration(config, subscriptionId, serviceManagementCert, serviceManagementURL);
 		if (!validationResult.equalsIgnoreCase(Constants.OP_SUCCESS)) {
-			errors.add(validationResult);
+			verificationResult.addError(validationResult);
 			// If profile validation failed , no point in validating rest of the field , just return error
-			return errors;
+			return verificationResult;
 		}
 		
 		//Verify number of parallel jobs
 		if (returnOnSingleError) {
 			validationResult = verifyNoOfExecutors(noOfParallelJobs);
-			addValidationResultIfFailed(validationResult, errors);
-			if (returnOnSingleError && errors.size() > 0 ) {
-				return errors;
+			verificationResult.addValidationResultIfFailed(validationResult);
+			if (returnOnSingleError && verificationResult.hasError()) {
+				return verificationResult;
 			}
 		}
 		
 		validationResult = verifyRetentionTime(retentionTimeInMin);
-		addValidationResultIfFailed(validationResult, errors);
-		if (returnOnSingleError && errors.size() > 0 ) {
-			return errors;
+		verificationResult.addValidationResultIfFailed(validationResult);
+		if (returnOnSingleError && verificationResult.hasError()) {
+			return verificationResult;
 		}
 		
 		validationResult = verifyAdminUserName(adminUserName);
-		addValidationResultIfFailed(validationResult, errors);
-		if (returnOnSingleError && errors.size() > 0 ) {
-			return errors;
+		verificationResult.addValidationResultIfFailed(validationResult);
+		if (returnOnSingleError && verificationResult.hasError()) {
+			return verificationResult;
 		}
 		
 		//verify password
 		validationResult = verifyAdminPassword(adminPassword);
-		addValidationResultIfFailed(validationResult, errors);
-		if (returnOnSingleError && errors.size() > 0 ) {
-			return errors;
+		verificationResult.addValidationResultIfFailed(validationResult);
+		if (returnOnSingleError && verificationResult.hasError()) {
+			return verificationResult;
 		}
 		
 		//verify JVM Options
 		validationResult = verifyJvmOptions(jvmOptions);
-		addValidationResultIfFailed(validationResult, errors);
-		if (returnOnSingleError && errors.size() > 0 ) {
-			return errors;
+		verificationResult.addValidationResultIfFailed(validationResult);
+		if (returnOnSingleError && verificationResult.hasError()) {
+			return verificationResult;
 		}
 		
 		verifyTemplateAsync(config, templateName, maxVirtualMachinesLimit, cloudServiceName, location, 
-							imageIdOrFamily, slaveLaunchMethod, storageAccountName, virtualNetworkName, subnetName, errors, returnOnSingleError);
+							imageIdOrFamily, slaveLaunchMethod, storageAccountName, virtualNetworkName, subnetName, verificationResult, returnOnSingleError);
 		
-		return errors;
+		return verificationResult;
 	}
 	
 	private static void verifyTemplateAsync(final Configuration config, final String templateName, final String maxVirtualMachinesLimit,
 			final String cloudServiceName, final String location, final String imageIdOrFamily, 
 			final String slaveLaunchMethod, final String storageAccountName, final String virtualNetworkName, 
-			final String subnetName, List<String> errors, boolean returnOnSingleError ) {
+			final String subnetName, VerificationResult verificationResult, boolean returnOnSingleError ) {
 		
-		List<Callable<String>> verificationTaskList = new ArrayList<Callable<String>>();
+		List<Callable<ValidationStepResult>> verificationTaskList = new ArrayList<Callable<ValidationStepResult>>();
 		
 		// Callable for max virtual limit
 		if (returnOnSingleError) {
-			Callable<String> callVerifyMaxVirtualMachineLimit = new Callable<String>() {
-				public String call() throws Exception {
-					return verifyMaxVirtualMachineLimit(config, maxVirtualMachinesLimit);
+			Callable<ValidationStepResult> callVerifyMaxVirtualMachineLimit = new Callable<ValidationStepResult>() {
+				public ValidationStepResult call() throws Exception {
+					return new ValidationStepResult(ValidationStep.VM_LIMIT,verifyMaxVirtualMachineLimit(config, maxVirtualMachinesLimit));
 	  	        }
 			};
 			verificationTaskList.add(callVerifyMaxVirtualMachineLimit);
 		}
 		
 		// Callable for cloud service name availability
-		Callable<String> callVerifyCloudServiceName = new Callable<String>() {
-			public String call() throws Exception {
-				return verifyCloudServiceName(config, templateName, cloudServiceName, location);
+		Callable<ValidationStepResult> callVerifyCloudServiceName = new Callable<ValidationStepResult>() {
+			public ValidationStepResult call() throws Exception {
+				return new ValidationStepResult(ValidationStep.CLOUD_SERVICE_NAME,verifyCloudServiceName(config, templateName, cloudServiceName, location));
   	        }
 		};
 		verificationTaskList.add(callVerifyCloudServiceName);
 		
 		// Callable for imageOrFamily 
-		Callable<String> callVerifyImageIdOrFamily = new Callable<String>() {
-			public String call() throws Exception {
-				return verifyImageIdOrFamily(config, imageIdOrFamily, location, slaveLaunchMethod, storageAccountName);
+		Callable<ValidationStepResult> callVerifyImageIdOrFamily = new Callable<ValidationStepResult>() {
+			public ValidationStepResult call() throws Exception {
+				return  new ValidationStepResult(ValidationStep.IMAGE_ID,verifyImageIdOrFamily(config, imageIdOrFamily, location, slaveLaunchMethod, storageAccountName));
   	        }
 		};
 		verificationTaskList.add(callVerifyImageIdOrFamily);
 		
 		// Callable for virtual network.
-		Callable<String> callVerifyVirtualNetwork = new Callable<String>() {
-			public String call() throws Exception {
-				return verifyVirtualNetwork(config, virtualNetworkName, subnetName);
+		Callable<ValidationStepResult> callVerifyVirtualNetwork = new Callable<ValidationStepResult>() {
+			public ValidationStepResult call() throws Exception {
+				return  new ValidationStepResult(ValidationStep.VIRTUAL_NETWORK,verifyVirtualNetwork(config, virtualNetworkName, subnetName));
   	        }
 		};
 		verificationTaskList.add(callVerifyVirtualNetwork);
@@ -1628,30 +1704,26 @@ public class AzureManagementServiceDelegate {
 		ExecutorService executorService = Executors.newFixedThreadPool(verificationTaskList.size());
     	
 		try {
-			List<Future<String>> validationResultList = executorService.invokeAll(verificationTaskList);
+			List<Future<ValidationStepResult>> validationResultList = executorService.invokeAll(verificationTaskList);
 
-		    for(Future<String> validationResult : validationResultList) {
+		    for(Future<ValidationStepResult> validationResult : validationResultList) {
 		    
 		    	try {
 		            // Get will block until time expires or until task completes
-		            String result = validationResult.get(60, TimeUnit.SECONDS);
-		            addValidationResultIfFailed(result, errors);
+					ValidationStepResult result = validationResult.get(60, TimeUnit.SECONDS);
+		           verificationResult.addValidationResultIfFailed(result);
 		         } catch (ExecutionException executionException) {
-		        	 errors.add("Exception occured while validating temaplate "+executionException);
+					verificationResult.addError("Exception occured while validating temaplate "+executionException);
 		         } catch (TimeoutException timeoutException) {
-		        	 errors.add("Exception occured while validating temaplate "+timeoutException);
+					verificationResult.addError("Exception occured while validating temaplate "+timeoutException);
 		         }
 		      }
 		} catch (InterruptedException interruptedException) {
-			errors.add("Exception occured while validating temaplate "+interruptedException);
+			verificationResult.addError("Exception occured while validating temaplate "+interruptedException);
 		}
 	}
 	
-	private static void addValidationResultIfFailed(String validationResult, List<String> errors) {
-		if (!validationResult.equalsIgnoreCase(Constants.OP_SUCCESS)) {
-			errors.add(validationResult);
-		}
-	}
+
 	
 	private static String verifyAzureProfileConfiguration(Configuration config, String subscriptionId, 
 			String serviceManagementCert, String serviceManagementURL) {
