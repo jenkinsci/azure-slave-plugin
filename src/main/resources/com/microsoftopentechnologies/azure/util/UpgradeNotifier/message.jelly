@@ -1,0 +1,11 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+<div class="warning">
+  <j:if test="${it.ShouldShowUpgradeMsg}">
+      <b>The Azure Slave plugin is deprecated in favor of the new <a target="_blank" href="https://aka.ms/AzJenkinsAgents">Azure VM Agents plugin</a>. You should upgrade!</b>
+  </j:if>
+  <j:if test="${it.ShouldShowMigrateMsg}">
+      <b>You should migrate your Azure configuration to the new Azure VM Agents plugin. You can find a tutorial <a target="_blank" href="https://aka.ms/AzJenkinsMigrateToAgents">here</a></b>
+  </j:if>
+</div>
+</j:jelly>

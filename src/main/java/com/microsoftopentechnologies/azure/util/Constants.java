@@ -88,4 +88,5 @@ public class Constants {
 	public static final String STOPPED_DEALLOCATED_VM_STATUS = "StoppedDeallocated";
 	public static final String ROLE_STATE_UNKNOWN = "RoleStateUnknown";
 	
+	public static final String NEW_PLUGIN_NAME = "azure-vm-agents";
 }
