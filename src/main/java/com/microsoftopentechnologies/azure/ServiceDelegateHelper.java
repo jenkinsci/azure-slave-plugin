@@ -211,15 +211,7 @@ public class ServiceDelegateHelper {
     private static KeyStore getBCProviderKeyStore() {
         KeyStore keyStore = null;
         try {
-            // Loading Bouncy castle classes dynamically so that BC dependency
-            // is only for java 1.6 clients
-            Class<?> providerClass = Class
-                    .forName("org.bouncycastle.jce.provider.BouncyCastleProvider");
-            Security.addProvider((Provider) providerClass.newInstance());
-
-            Field field = providerClass.getField("PROVIDER_NAME");
-            keyStore = KeyStore.getInstance("PKCS12", field.get(null)
-                    .toString());
+            keyStore = KeyStore.getInstance("PKCS12", "BC");
         } catch (Exception e) {
             // Using catch all exception class to avoid repeated code in
             // different catch blocks
