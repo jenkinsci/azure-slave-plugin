@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
+import com.microsoftopentechnologies.azure.exceptions.AzureCloudException;
 import jenkins.model.Jenkins;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -170,17 +171,28 @@ public class AzureCloud extends Cloud {
 		LOGGER.info("Azure Cloud: provision: start for label " + label+" workLoad "+workLoad);
 		final AzureSlaveTemplate slaveTemplate = getAzureSlaveTemplate(label);
 		List<PlannedNode> plannedNodes = new ArrayList<PlannedNode>();
-		
+
+
+		AzureManagementServiceDelegate.VerificationResult result;
 		while (workLoad > 0) {
 			// Verify template
 			try {
 				LOGGER.info("Azure Cloud: provision: Verifying template " + slaveTemplate.getTemplateName());
-				List<String> errors = slaveTemplate.verifyTemplate();
-				
-				if (errors.size() > 0 ) {
-					LOGGER.info("Azure Cloud: provision: template " + slaveTemplate.getTemplateName() + "has validation errors , cannot"
-							+" provision slaves with this configuration "+errors);
-					slaveTemplate.handleTemplateStatus("Validation Error: Validation errors in template \n" + " Root cause: "+errors, 
+				result = slaveTemplate.verifyTemplate();
+
+
+				//Error if error count > 0 and vm limit is NOT reached
+				boolean isError = result.errors.size() > 0 && !result.isVmLimitReached();
+				//Error if errcor count > 1 and vm limit is reached
+				isError = isError || (result.errors.size() > 1 && result.isVmLimitReached());
+
+ 
+
+
+				if (isError) {
+					LOGGER.info("Azure Cloud: provision: template " + slaveTemplate.getTemplateName() + " has validation errors , cannot"
+							+" provision slaves with this configuration "+result.errors);
+					slaveTemplate.handleTemplateStatus("Validation Error: Validation errors in template \n" + " Root cause: "+result.errors,
 							FailureStage.VALIDATION, null);
 					
 					// Register template for periodic check so that jenkins can make template active if validation errors are corrected
@@ -202,6 +214,10 @@ public class AzureCloud extends Cloud {
 				}
 				break;
 			}
+
+			final boolean vmLimitreached = result.isVmLimitReached();
+			final String vmLimitErrorString = vmLimitreached ? result.errors.get(0) : "";
+
 
 			plannedNodes.add(new PlannedNode(slaveTemplate.getTemplateName(),
 					Computer.threadPoolForRemoting.submit(new Callable<Node>() {
@@ -248,7 +264,12 @@ public class AzureCloud extends Cloud {
 									
 								}
 							}
-							
+							if(vmLimitreached){
+								slaveTemplate.handleTemplateStatus(vmLimitErrorString,FailureStage.VALIDATION,null);
+								throw new AzureCloudException(vmLimitErrorString);
+							}
+
+
 							LOGGER.info("Azure Cloud: provision: Provisioning new slave for label "+slaveTemplate.getLabels());
 
 							@SuppressWarnings("deprecation")
@@ -373,12 +394,12 @@ public class AzureCloud extends Cloud {
 		// 1. Verify template
 		try {
 			LOGGER.info("Azure Cloud: doProvision: Verifying template " + slaveTemplate.getTemplateName());
-			List<String> errors = slaveTemplate.verifyTemplate();
+			AzureManagementServiceDelegate.VerificationResult result = slaveTemplate.verifyTemplate();
 			
-			if (errors.size() > 0 ) {
+			if (result.hasError()) {
 				LOGGER.info("Azure Cloud: doProvision: template " + slaveTemplate.getTemplateName() + " has validation errors , cannot"
-						+" provision slaves with this configuration "+errors);
-				sendError("template " + slaveTemplate.getTemplateName() + "has validation errors "+errors, req, rsp);
+						+" provision slaves with this configuration "+result.errors);
+				sendError("template " + slaveTemplate.getTemplateName() + "has validation errors "+result.errors, req, rsp);
 				return;
 			} else {
 				LOGGER.info("Azure Cloud: provision: template " + slaveTemplate.getTemplateName() + "has no validation errors");

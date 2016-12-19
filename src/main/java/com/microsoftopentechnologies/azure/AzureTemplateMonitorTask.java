@@ -46,9 +46,9 @@ public final class AzureTemplateMonitorTask extends AsyncPeriodicWork {
 				
 				if (slaveTemplate.getTemplateStatus().equals(Constants.TEMPLATE_STATUS_DISBALED)) {
 					try {
-						List<String> errors = slaveTemplate.verifyTemplate();
+						AzureManagementServiceDelegate.VerificationResult result = slaveTemplate.verifyTemplate();
 						
-						if (errors.size() == 0) {
+						if (!result.hasError()) {
 							// Template errors are now gone, set template to Active
 							slaveTemplate.setTemplateStatus(Constants.TEMPLATE_STATUS_ACTIVE);
 							slaveTemplate.setTemplateStatusDetails("");
