@@ -24,6 +24,7 @@ import jenkins.model.Jenkins;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 
+import com.microsoftopentechnologies.azure.CleanupAction;
 import com.microsoftopentechnologies.azure.util.Constants;
 import com.microsoftopentechnologies.azure.util.FailureStage;
 import com.microsoftopentechnologies.azure.remote.AzureSSHLauncher;
@@ -63,7 +64,7 @@ public class AzureSlave extends AbstractCloudSlave  {
 	private  String passPhrase;
 	private  String managementURL;
 	private String templateName;
-	private boolean deleteSlave;
+    private CleanupAction cleanupAction;
 	private static final Logger LOGGER = Logger.getLogger(AzureSlave.class.getName());
 
 	@DataBoundConstructor
@@ -71,7 +72,7 @@ public class AzureSlave extends AbstractCloudSlave  {
 			ComputerLauncher launcher, RetentionStrategy<AzureComputer> retentionStrategy, List<? extends NodeProperty<?>> nodeProperties, 
 			String cloudName, String adminUserName, String sshPrivateKey, String sshPassPhrase, String adminPassword, String jvmOptions, 
 			boolean shutdownOnIdle, String cloudServiceName, String deploymentName, int retentionTimeInMin, String initScript, 
-			String subscriptionID, String managementCert, String passPhrase, String managementURL, String slaveLaunchMethod, boolean deleteSlave) throws FormException, IOException {
+			String subscriptionID, String managementCert, String passPhrase, String managementURL, String slaveLaunchMethod, CleanupAction cleanupAction) throws FormException, IOException {
 		super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
 		this.cloudName = cloudName;
 		this.templateName = templateName;
@@ -92,18 +93,18 @@ public class AzureSlave extends AbstractCloudSlave  {
 		this.passPhrase = passPhrase;
 		this.managementURL = managementURL;
 		this.slaveLaunchMethod = slaveLaunchMethod;
-		this.deleteSlave = deleteSlave;
+		this.cleanupAction = cleanupAction;
 	}
 	
 	public AzureSlave(String name, String templateName, String nodeDescription, String osType, String remoteFS, int numExecutors, Mode mode, String labelString,
 			String cloudName, String adminUserName, String sshPrivateKey, String sshPassPhrase, String adminPassword, String jvmOptions, 
 			boolean shutdownOnIdle, String cloudServiceName, String deploymentName, int retentionTimeInMin, String initScript, 
-			String subscriptionID, String managementCert, String passPhrase, String managementURL, String slaveLaunchMethod, boolean deleteSlave) throws FormException, IOException {
+			String subscriptionID, String managementCert, String passPhrase, String managementURL, String slaveLaunchMethod, CleanupAction cleanupAction) throws FormException, IOException {
 		this(name, templateName, nodeDescription, osType, remoteFS, numExecutors, mode, labelString, 
 				slaveLaunchMethod.equalsIgnoreCase("SSH")? osType.equalsIgnoreCase("Windows")? new AzureSSHLauncher():new AzureSSHLauncher() : new JNLPLauncher(),
 				new AzureCloudRetensionStrategy(retentionTimeInMin), Collections.<NodeProperty<?>> emptyList(), cloudName, adminUserName,
 				sshPrivateKey, sshPassPhrase, adminPassword, jvmOptions, shutdownOnIdle, cloudServiceName, deploymentName, retentionTimeInMin, initScript,
-				subscriptionID, managementCert, passPhrase, managementURL, slaveLaunchMethod, deleteSlave);
+				subscriptionID, managementCert, passPhrase, managementURL, slaveLaunchMethod, cleanupAction);
 		this.cloudName = cloudName;
 		this.templateName = templateName;
 		this.adminUserName = adminUserName;
@@ -122,7 +123,7 @@ public class AzureSlave extends AbstractCloudSlave  {
 		this.managementCert = managementCert;
 		this.passPhrase = passPhrase;
 		this.managementURL = managementURL;
-		this.deleteSlave = deleteSlave;
+		this.cleanupAction = cleanupAction;
 	}
 
 	public String getCloudName() {
@@ -177,12 +178,12 @@ public class AzureSlave extends AbstractCloudSlave  {
 		return adminPassword;
 	}
 
-	public boolean isDeleteSlave() {
-		return deleteSlave;
+	public CleanupAction getCleanupAction() {
+		return cleanupAction;
 	}
 
-	public void setDeleteSlave(boolean deleteSlave) {
-		this.deleteSlave = deleteSlave;
+	public void setCleanupAction(CleanupAction cleanupAction) {
+		this.cleanupAction = cleanupAction;
 	}
 
 	public String getJvmOptions() {
@@ -244,31 +245,37 @@ public class AzureSlave extends AbstractCloudSlave  {
 	
 	public void idleTimeout() throws Exception {
 		if (shutdownOnIdle) {
-			// Call shutdown only if the slave is online
-			if (this.getComputer().isOnline()) {
-				LOGGER.info("AzureSlave: idleTimeout: shutdownOnIdle is true, shutting down slave "+this.getDisplayName());
-				this.getComputer().disconnect(OfflineCause.create(Messages._IDLE_TIMEOUT_SHUTDOWN()));
-				AzureManagementServiceDelegate.shutdownVirtualMachine(this);
-				setDeleteSlave(false);
-			}
+            LOGGER.info("AzureSlave: idleTimeout: shutdownOnIdle is true, marking slave for shutdown: " + this.getDisplayName());
+            setCleanupAction(CleanupAction.SHUTDOWN);
+            this.getComputer().disconnect(OfflineCause.create(Messages._IDLE_TIMEOUT_SHUTDOWN()));
 		} else {
-			LOGGER.info("AzureSlave: idleTimeout: shutdownOnIdle is false, deleting slave "+this.getDisplayName());
-			setDeleteSlave(true);
-			AzureManagementServiceDelegate.terminateVirtualMachine(this, true);
-			Jenkins.getInstance().removeNode(this);
+			LOGGER.info("AzureSlave: idleTimeout: shutdownOnIdle is false, marking slave for deletion: " + this.getDisplayName());
+			setCleanupAction(CleanupAction.TERMINATE);
+            this.getComputer().setTemporarilyOffline(true, OfflineCause.create(Messages._Delete_Slave()));
 		}
-	}
+    }
+    
+    public void cleanup() throws Exception {
+        // Clean up the node.  If we are unsuccesful, then we simple skip and continue
+        if (getCleanupAction() == CleanupAction.TERMINATE) { 
+            LOGGER.info("AzureSlave: cleanup: Terminate called for slave " + this.getDisplayName());
+            AzureManagementServiceDelegate.terminateVirtualMachine(this, true);
+            LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " succesfully deleted.");
+            Jenkins.getInstance().removeNode(this);
+        } else if (getCleanupAction() == CleanupAction.SHUTDOWN) {
+            // If we aren't to delete it, then we should just shut it down.
+            LOGGER.info("AzureSlave: cleanup: Shutdown called for slave " + this.getDisplayName());
+            AzureManagementServiceDelegate.shutdownVirtualMachine(this);
+            LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " succesfully shutdown.");
+        }
+        else {
+            LOGGER.info("AzureSlave: cleanup: Slave " + this.getDisplayName() + " is offline but not marked for shutdown/deletion.");
+        }
+    }
 	
 	public AzureCloud getCloud() {
     	return (AzureCloud) Jenkins.getInstance().getCloud(cloudName);
     }
-	
-	public void deprovision() throws Exception {
-		LOGGER.info("AzureSlave: deprovision: Deprovision called for slave "+this.getDisplayName());
-		AzureManagementServiceDelegate.terminateVirtualMachine(this, true);
-		setDeleteSlave(true);
-		Jenkins.getInstance().removeNode(this);
-	}
 	
 	public boolean isVMAliveOrHealthy() throws Exception {		
 		return AzureManagementServiceDelegate.isVMAliveOrHealthy(this);
@@ -294,8 +301,8 @@ public class AzureSlave extends AbstractCloudSlave  {
 				+ ", osType=" + osType + ", publicDNSName=" + publicDNSName
 				+ ", sshPort=" + sshPort + ", mode=" + mode
 				+ ", subscriptionID=" + subscriptionID + ", passPhrase=" + passPhrase
-				+ ", managementURL=" + managementURL + ", deleteSlave="
-				+ deleteSlave + "]";
+				+ ", managementURL=" + managementURL + ", cleanupAction="
+				+ cleanupAction + "]";
 	}
 
 	@Extension

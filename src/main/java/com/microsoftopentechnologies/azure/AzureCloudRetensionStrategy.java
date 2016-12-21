@@ -56,29 +56,22 @@ public class AzureCloudRetensionStrategy extends RetentionStrategy<AzureComputer
 	private long _check(final AzureComputer slaveNode) {
         // if idleTerminationMinutes is zero then it means that never terminate the slave instance 
         // an active node or one that is not yet up and running are ignored as well
-        if (idleTerminationMillis > 0 && slaveNode.isIdle() && slaveNode.isProvisioned()
-                && idleTerminationMillis < (System.currentTimeMillis() - slaveNode.getIdleStartMilliseconds())) {
-            // block node for further tasks
-            slaveNode.setAcceptingTasks(false);
+        if (idleTerminationMillis > 0 && slaveNode.isIdle() && 
+                idleTerminationMillis < (System.currentTimeMillis() - slaveNode.getIdleStartMilliseconds())) {
+            // If the node is already marked for shutdown/deletion, then skip
+            if (slaveNode.getNode().getCleanupAction() != CleanupAction.NONE) {
+                return 1;
+            }
             LOGGER.info("AzureCloudRetensionStrategy: check: Idle timeout reached for slave: "+slaveNode.getName());
 
+            // block node for further tasks
+            slaveNode.setAcceptingTasks(false);
+            
             try {
-            	slaveNode.getNode().idleTimeout();
-            } catch (AzureCloudException ae) {
-                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ " Error code "+ae.getMessage());
-            } catch (Exception e) {
-                LOGGER.info("AzureCloudRetensionStrategy: check: could not terminate or shutdown "+slaveNode.getName()+ "Error code "+e.getMessage());
-                
-            }
-            // close channel? Need to see if below code solved any issues.
-            try {
-                slaveNode.setProvisioned(false);
-                if (slaveNode.getChannel() != null) {
-                    slaveNode.getChannel().close();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                LOGGER.info("AzureCloudRetensionStrategy: check: exception occured while closing channel for: " + slaveNode.getName());
+               slaveNode.getNode().idleTimeout();
+            } 
+            catch (Exception e) {
+                LOGGER.info("AzureCloudRetensionStrategy: check: could not perform idle shutdown/delete prep for "+slaveNode.getName()+ " Error code "+e.getMessage());
             }
         }
         return 1;

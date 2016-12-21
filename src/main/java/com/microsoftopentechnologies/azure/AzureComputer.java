@@ -53,7 +53,7 @@ public class AzureComputer extends AbstractCloudComputer<AzureSlave>  {
 	public HttpResponse doDoDelete() throws IOException {
 		LOGGER.info("AzureComputer: doDoDelete called for slave "+getNode().getNodeName());
 		setTemporarilyOffline(true, OfflineCause.create(Messages._Delete_Slave()));
-		getNode().setDeleteSlave(true);
+		getNode().setCleanupAction(CleanupAction.TERMINATE);
 		try {
 			deleteSlave();
 		} catch(Exception e) {
@@ -68,11 +68,9 @@ public class AzureComputer extends AbstractCloudComputer<AzureSlave>  {
 		LOGGER.info("AzureComputer : deleteSlave: Deleting " + getName() + " slave");
 	
 		AzureSlave slave = getNode();
-		if (slave.getChannel() != null) {
-			slave.getChannel().close();
-		}
+		this.setTemporarilyOffline(true, OfflineCause.create(Messages._Delete_Slave()));
 		try {
-			slave.deprovision();
+			slave.cleanup();
 		} catch (Exception e) {
 			
 			LOGGER.severe("AzureComputer : Exception occurred while deleting  " + getName() + " slave");

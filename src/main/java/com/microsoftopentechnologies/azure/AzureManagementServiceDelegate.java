@@ -528,7 +528,8 @@ public class AzureManagementServiceDelegate {
 					template.getJvmOptions(), template.isShutdownOnIdle(),
 					cloudServiceName, params.getName(),
 					template.getRetentionTimeInMin(), template.getInitScript(), azureCloud.getSubscriptionId(),
-					azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), template.getSlaveLaunchMethod(), false);
+					azureCloud.getServiceManagementCert(), azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), 
+                    template.getSlaveLaunchMethod(), CleanupAction.NONE);
 		} catch (FormException e) {
 			e.printStackTrace();
 			throw new AzureCloudException("AzureManagementServiceDelegate: parseDeploymentResponse: Exception occured while creating slave object"+e);
@@ -563,7 +564,8 @@ public class AzureManagementServiceDelegate {
 					template.getJvmOptions(), template.isShutdownOnIdle(),
 					cloudServiceName, deploymentName,
 					template.getRetentionTimeInMin(), template.getInitScript(), azureCloud.getSubscriptionId(), azureCloud.getServiceManagementCert(),
-					azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), template.getSlaveLaunchMethod(), false);
+					azureCloud.getPassPhrase(), azureCloud.getServiceManagementURL(), template.getSlaveLaunchMethod(), 
+                    CleanupAction.NONE);
 		} catch (FormException e) {
 			e.printStackTrace();
 			throw new AzureCloudException("AzureManagementServiceDelegate: parseResponse: Exception occured while creating slave object"+e);
