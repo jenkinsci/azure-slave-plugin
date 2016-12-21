@@ -1624,17 +1624,24 @@ public class AzureManagementServiceDelegate {
 		verificationTaskList.add(callVerifyVirtualNetwork);
 		
 		
-		
 		ExecutorService executorService = Executors.newFixedThreadPool(verificationTaskList.size());
     	
 		try {
-			List<Future<String>> validationResultList = executorService.invokeAll(verificationTaskList);
+                    // Submit all new tasks.  We want to get individual results with timeouts for each of the
+                    // tasks, so call submit on each one, adding a Future<String> and then loop through and get
+                    // the results.
 
-		    for(Future<String> validationResult : validationResultList) {
+                    List<Future<String>> validationResultList = new ArrayList<Future<String>>(verificationTaskList.size());
+
+                    for(Callable<String> verificationTask : verificationTaskList) {
+                        validationResultList.add(executorService.submit(verificationTask));
+                    }
+
+                    for(Future<String> validationResult : validationResultList) {
 		    
 		    	try {
 		            // Get will block until time expires or until task completes
-		            String result = validationResult.get(60, TimeUnit.SECONDS);
+		            String result = validationResult.get(600, TimeUnit.SECONDS);
 		            addValidationResultIfFailed(result, errors);
 		         } catch (ExecutionException executionException) {
 		        	 errors.add("Exception occured while validating temaplate "+executionException);
