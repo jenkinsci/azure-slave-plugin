@@ -172,9 +172,55 @@ public class AzureManagementServiceDelegate {
 				}
 			}
 
-			// Get cloud service name
-			String cloudServiceName = AzureUtil.isNotNull(template.getCloudServiceName()) ? template.getCloudServiceName() : template.getTemplateName();
-			String deploymentName = getExistingDeploymentName(config, cloudServiceName);
+            // Grab the cloud service name strings that we can use.  They are command separated.
+            String[] potentialCloudServices = null;
+            if (AzureUtil.isNotNull(template.getCloudServiceName())) {
+                // Parse the command separated service list
+                potentialCloudServices = template.getCloudServiceName().split(",");
+            }
+            else {
+                // Add the template name
+                potentialCloudServices = new String[1];
+                potentialCloudServices[0] = template.getTemplateName();
+            }
+            
+            // Find the one we want to use.  Some may be filled already so we should
+            // skip those
+            String cloudServiceName = null;
+            String deploymentName = null;
+            for (String potentialService : potentialCloudServices) {
+                if (!checkIfCloudServiceExists(client, potentialService)) {
+                    LOGGER.info("AzureManagementServiceDelegate: createVirtualMachine: Cloud service " + potentialService + " doesn't exist, deploying VM");
+                    cloudServiceName = potentialService;
+                    break;
+                }
+                
+                deploymentName = getExistingDeploymentName(config, potentialService);
+                
+                if (deploymentName == null) {
+                    LOGGER.info("AzureManagementServiceDelegate: createVirtualMachine: Cloud service " + potentialService + " has no existing deployement, deploying VM");
+                    cloudServiceName = potentialService;
+                    break;
+                }
+                
+                int availableSpace = getAvailableServiceSpace(config, potentialService);
+                
+                // Cloud service exists, check to see whether there is space in it.
+                if (availableSpace > 0) {
+                    LOGGER.info("AzureManagementServiceDelegate: createVirtualMachine: Cloud service " + potentialService + " has space (" + availableSpace + " slots) , deploying VM");
+                    cloudServiceName = potentialService;
+                    break;
+                }
+                
+                LOGGER.info("AzureManagementServiceDelegate: createVirtualMachine: Cloud service " + potentialService + " doesn't have space, skipping");
+            }
+            
+            // If the cloud service name is null, then there isn't space in any service,
+            // and we should bail out on this.
+            if (cloudServiceName == null) {
+                throw new AzureCloudException("AzureManagementServiceDelegate: createVirtualMachine: No cloud service has space, waiting");
+            }
+            
 			OperationStatusResponse response = null;
 			boolean successful = false;
 			int retryCount = 0;
@@ -1075,8 +1121,21 @@ public class AzureManagementServiceDelegate {
 		}
 
 		return vmSizes;
-	}
-
+    }
+    
+    /**
+	 * Determines whether the service has enough space for another VM.  The maximum number
+     * of roles is 50 today.
+	 * @param config
+	 * @param cloudServiceName
+	 * @return true if the service has space, false otherwise.
+	 * @throws Exception
+	 */
+    public static int getAvailableServiceSpace(Configuration config, String cloudServiceName) throws Exception {
+        ComputeManagementClient client = ServiceDelegateHelper.getComputeManagementClient(config);
+		ArrayList<RoleInstance> roleInstances = client.getDeploymentsOperations().getBySlot(cloudServiceName, DeploymentSlot.Production).getRoleInstances();
+        return 50 - roleInstances.size();
+    }
 	/**
 	 * Validates certificate configuration
 	 * @param subscriptionId
@@ -1722,13 +1781,17 @@ public class AzureManagementServiceDelegate {
 		} else if (!isNullOrEmpty(cloudServiceName)) {
 			
 			try {
-				if (!validateCloudServiceName(config, cloudServiceName)) {
-					return Messages.Azure_GC_Template_CS_NA(cloudServiceName);
-				}
-			
-				if (!doesCloudServiceLocationMatch(config, cloudServiceName, location)) {
-					return Messages.Azure_GC_Template_CS_LOC_No_Match();
-				}
+                // Split the cloud service string byc ommand validate each
+                String[] potentialCloudServices = cloudServiceName.split(",");
+                for (String potentialService : potentialCloudServices) {
+                    if (!validateCloudServiceName(config, potentialService)) {
+                        return Messages.Azure_GC_Template_CS_NA(potentialService);
+                    }
+
+                    if (!doesCloudServiceLocationMatch(config, potentialService, location)) {
+                        return Messages.Azure_GC_Template_CS_LOC_No_Match();
+                    }
+                }
 			} catch (Exception e) {
 				// Ignore silently???
 			}

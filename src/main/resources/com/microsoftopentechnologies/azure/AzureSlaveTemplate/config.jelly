@@ -25,6 +25,10 @@
 				<f:entry title="${%Storage_Account_Name}" field="storageAccountName" help="/plugin/azure-slave-plugin/help-storageAccountName.html">
 					<f:textbox />
 		  		</f:entry>
+                
+                <f:entry title="${%CloudServiceName}" field="cloudServiceName" help="/plugin/azure-slave-plugin/help-cloudServiceName.html">
+					<f:textbox />
+				</f:entry>
 		  		
 		  		<f:entry title="${%RetentionTimeInMin}" field="retentionTimeInMin" help="/plugin/azure-slave-plugin/help-retentionTimeInMin.html">
 		    		<f:textbox default="60" />
@@ -74,10 +78,6 @@
 		    	
 		    	<f:entry title="${%JVM_Options}" field="jvmOptions" help="/plugin/azure-slave-plugin/help-jvmOptions.html">
 		    		<f:textbox />
-				</f:entry>
-				
-				<f:entry title="${%CloudServiceName}" field="cloudServiceName" help="/plugin/azure-slave-plugin/help-cloudServiceName.html">
-					<f:textbox />
 				</f:entry>
 
 				<f:entry title="${%noOfParallelJobs}" field="noOfParallelJobs" help="/plugin/azure-slave-plugin/help-noOfParallelJobs.html">
