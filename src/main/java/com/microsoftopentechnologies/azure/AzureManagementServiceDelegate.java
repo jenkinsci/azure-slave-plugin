@@ -448,8 +448,8 @@ public class AzureManagementServiceDelegate {
 		DeploymentGetResponse response = client.getDeploymentsOperations().getByName(azureSlave.getCloudServiceName(), 
 				azureSlave.getDeploymentName());
 		
-		// Getting the first virtual IP
-		azureSlave.setPublicDNSName(response.getVirtualIPAddresses().get(0).getAddress().getHostAddress());
+		// Getting the host name
+		azureSlave.setPublicDNSName(response.getUri().getHost());//response.getVirtualIPAddresses().get(0).getAddress().getHostAddress());
 
 		ArrayList<RoleInstance> instances = response.getRoleInstances();
 		for (RoleInstance roleInstance : instances) {

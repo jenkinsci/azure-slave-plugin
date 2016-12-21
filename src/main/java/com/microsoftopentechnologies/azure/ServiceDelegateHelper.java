@@ -89,7 +89,7 @@ public class ServiceDelegateHelper {
 		}
 
 		// Form outFile
-		String outputKeyStore = System.getProperty("user.home")	+ File.separator + ".azure" + File.separator 
+		String outputKeyStore = System.getProperty("JENKINS_HOME")	+ File.separator + ".azure" + File.separator 
 				+ subscriptionId + ".out";
 		createKeyStoreFromCertifcate(serviceManagementCert, outputKeyStore,
 				passPhrase);
